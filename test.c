@@ -5,13 +5,12 @@
 
 struct timespec start, stop;
 int x = 42;
-int y = 0;
 int output = 0;
 uint64_t addr_x = (uint64_t)&x;
 
 int main()
 {
-    // erster Zugriff
+    // first data access
     clock_gettime(CLOCK_REALTIME, &start);
 
     asm volatile ("MOV %0, %1;"
@@ -27,7 +26,7 @@ int main()
 
     printf("%li,%li\n", stop.tv_sec-start.tv_sec, stop.tv_nsec-start.tv_nsec);
 
-    // zweiter Zugriff
+    // second data access
     clock_gettime(CLOCK_REALTIME, &start);
 
     asm volatile ("MOV %0, %1;"
@@ -43,14 +42,14 @@ int main()
 
     printf("%li,%li\n", stop.tv_sec-start.tv_sec, stop.tv_nsec-start.tv_nsec);
 
-    // flush cacheline by VA to PoU
+    // clean and invalidate cacheline by VA to PoC
     asm volatile (" DC CIVAC, %0;"
                     : // no output
                     : "r" (addr_x));
     asm volatile ("DSB ISH"); // data sync barrier to inner sharable domain
     asm volatile ("ISB"); //instruction sync barrier
 
-    // dritter Zugriff
+    // third data access
 
     clock_gettime(CLOCK_REALTIME, &start);
     
