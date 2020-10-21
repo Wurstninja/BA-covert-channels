@@ -63,6 +63,9 @@ int main()
         fprintf(stderr, "Error opening leader %llx\n", pe.config);
         exit(EXIT_FAILURE);
     }
+
+    // flush+reload test
+
     // first data access
     
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
@@ -77,7 +80,7 @@ int main()
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     read(fd, &count, sizeof(long long));
 
-    printf("Used %lld instructions\n", count);
+    printf("First access: Used %lld instructions\n", count);
 
     
 
@@ -94,7 +97,7 @@ int main()
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     read(fd, &count, sizeof(long long));
 
-    printf("Used %lld instructions\n", count);
+    printf("cached access: Used %lld instructions\n", count);
 
     flush_cache_line(addr);
     // data, instruction barrier
@@ -115,7 +118,53 @@ int main()
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     read(fd, &count, sizeof(long long));
 
-    printf("Used %lld instructions\n", count);
+    printf("flushed access: Used %lld instructions\n", count);
+
+
+    
+    // flush+flush test
+
+    // first flush
+    flush_cache_line(addr);
+
+    // not caching data
+
+    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+    // second flush
+    flush_cache_line(addr);
+
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+    read(fd, &count, sizeof(long long));
+
+    printf("not cached: Used %lld instructions\n", count);
+
+    // first flush
+    flush_cache_line(addr);
+
+    // cache data
+
+    asm volatile ("MOV X0, %0;"
+                    :: "r"  (buffer[10]));
+
+    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+    // second flush
+    flush_cache_line(addr);
+
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+    read(fd, &count, sizeof(long long));
+
+    printf("cached: Used %lld instructions\n", count);
+
 
 
     return 0;
