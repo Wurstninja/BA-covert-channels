@@ -66,6 +66,8 @@ int main()
 
     // flush+reload test
 
+    printf("Flush+Reload test:\n");
+
     // first data access
     
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
@@ -123,6 +125,8 @@ int main()
 
     
     // flush+flush test
+
+    printf("Flush+Flush test:\n");
 
     // first flush
     flush_cache_line(addr);
