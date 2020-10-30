@@ -42,12 +42,59 @@ void data_access(int value)
     asm volatile ("ISB");
 }
 
+void flushFlushTest(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
+{
+    // first flush
+    flush_cache_line(addr);
+
+    // not caching data
+
+    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+    // second flush
+    flush_cache_line(addr);
+
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+    read(fd, &count, sizeof(long long));
+
+    fftimings[0] = count;
+
+    // printf("not cached: Used %lld instructions\n", count);
+
+    // first flush
+    flush_cache_line(addr);
+
+    // cache data
+
+    asm volatile ("MOV X0, %0;"
+                    :: "r"  (buffer[10]));
+
+    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+    // second flush
+    flush_cache_line(addr);
+
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+    read(fd, &count, sizeof(long long));
+
+    fftimings[1] = count;
+    // printf("cached: Used %lld instructions\n", count);
+}
+
 
 int main()
 {   
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
-    long long count;
+    uint64_t count;
     int fd;
 
     memset(&pe, 0, sizeof(struct perf_event_attr));
@@ -126,48 +173,37 @@ int main()
     
     // flush+flush test
 
+    uint64_t fftimings [2];
+
+    fftimings [0] = 0; // uncached flush
+    fftimings [1] = 0; // cached flush 
+
+    uint64_t uncached_flush = 0;
+    uint64_t cached_flush = 0;
+
     printf("Flush+Flush test:\n");
 
-    // first flush
-    flush_cache_line(addr);
+    FILE* fp;
+    fp = fopen("fftest.txt", "w" );
 
-    // not caching data
+    for(int i = 0; i < 10000; i++)
+    {
+        flushFlushTest(addr, pe, count, fd, fftimings);
+        uncached_flush += fftimings[0];
+        cached_flush += fftimings[1];
+        fprintf(fp,"%lli\n", fftimings[0]);
+        fprintf(fp,"%lli\n", fftimings[1]);
+    }
 
-    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-    // second flush
-    flush_cache_line(addr);
+    
 
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
+    uncached_flush = uncached_flush/10000;
+    cached_flush = cached_flush/10000;
 
-    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(fd, &count, sizeof(long long));
+    fclose(fp);
 
-    printf("not cached: Used %lld instructions\n", count);
+    printf("%lli, %lli\n", uncached_flush, cached_flush);
 
-    // first flush
-    flush_cache_line(addr);
-
-    // cache data
-
-    asm volatile ("MOV X0, %0;"
-                    :: "r"  (buffer[10]));
-
-    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-    // second flush
-    flush_cache_line(addr);
-
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(fd, &count, sizeof(long long));
-
-    printf("cached: Used %lld instructions\n", count);
 
 
 
