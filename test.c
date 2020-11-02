@@ -42,7 +42,7 @@ void data_access(int value)
     asm volatile ("ISB");
 }
 
-void flushFlushTest(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
+void flush_flush_test(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
 {
     // first flush
     flush_cache_line(addr);
@@ -89,6 +89,54 @@ void flushFlushTest(void* addr, struct perf_event_attr pe, uint64_t count, int f
     // printf("cached: Used %lld instructions\n", count);
 }
 
+void flush_reload_test(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
+{
+    // load data
+    
+    asm volatile ("MOV X0, %0;"
+                    :: "r"  (buffer[10]));
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    // cached reload
+    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+
+    asm volatile ("MOV X0, %0;"
+                    :: "r"  (buffer[10]));
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+    read(fd, &count, sizeof(long long));
+
+    frtimings[0] = count;
+
+    // flush data
+
+    flush_cache_line(addr);
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    // uncached reload
+
+    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+
+    asm volatile ("MOV X0, %0;"
+                    :: "r"  (buffer[10]));
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
+    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+    read(fd, &count, sizeof(long long));
+
+    frtimings[1] = count;
+}
 
 int main()
 {   
@@ -111,65 +159,6 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    // flush+reload test
-
-    printf("Flush+Reload test:\n");
-
-    // first data access
-    
-    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-
-    asm volatile ("MOV X0, %0;"
-                    :: "r"  (buffer[10]));
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(fd, &count, sizeof(long long));
-
-    printf("First access: Used %lld instructions\n", count);
-
-    
-
-    // second data access
-    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-
-    asm volatile ("MOV X0, %0;"
-                    :: "r"  (buffer[10]));
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(fd, &count, sizeof(long long));
-
-    printf("cached access: Used %lld instructions\n", count);
-
-    flush_cache_line(addr);
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    // third data access
-
-    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-
-    asm volatile ("MOV X0, %0;"
-                    :: "r"  (buffer[10]));
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(fd, &count, sizeof(long long));
-
-    printf("flushed access: Used %lld instructions\n", count);
-
-
     
     // flush+flush test
 
@@ -182,13 +171,12 @@ int main()
     uint64_t cached_flush = 0;
 
     printf("Flush+Flush test:\n");
-
     FILE* fp;
     fp = fopen("fftest.txt", "w" );
 
     for(int i = 0; i < 10000; i++)
     {
-        flushFlushTest(addr, pe, count, fd, fftimings);
+        flush_flush_test(addr, pe, count, fd, fftimings);
         uncached_flush += fftimings[0];
         cached_flush += fftimings[1];
         fprintf(fp,"%lli\n", fftimings[0]);
@@ -204,7 +192,48 @@ int main()
 
     printf("%lli, %lli\n", uncached_flush, cached_flush);
 
+    // calculating threshold (with average timings)
 
+    uint64_t ff_threshold = (cached_flush - uncached_flush)*0.5+uncached_flush;
+
+    printf("recommended threshold: %lli\n\n", ff_threshold);
+
+    // flush+reload test
+
+    uint64_t frtimings [2];
+
+    frtimings [0] = 0; // uncached flush
+    frtimings [1] = 0; // cached flush 
+
+    uint64_t uncached_reload = 0;
+    uint64_t cached_reload = 0;
+
+    printf("Flush+Reload test:\n");
+
+    FILE* fp2;
+    fp2 = fopen("frtest.txt", "w" );
+
+    for(int i = 0; i < 10000; i++)
+    {
+        flush_reload_test(addr, pe, count, fd, frtimings);
+        uncached_reload += frtimings[0];
+        cached_reload += frtimings[1];
+        fprintf(fp2,"%lli\n", frtimings[0]);
+        fprintf(fp2,"%lli\n", frtimings[1]);
+    }
+
+    
+
+    uncached_reload = uncached_reload/10000;
+    cached_reload = cached_reload/10000;
+
+    fclose(fp2);
+
+    printf("%lli, %lli\n", uncached_reload, cached_reload);
+
+    uint64_t fr_threshold = (cached_reload - uncached_reload)*0.5+uncached_reload;
+
+    printf("recommended threshold: %lli\n\n", fr_threshold);
 
 
     return 0;
