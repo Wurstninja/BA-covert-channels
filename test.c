@@ -10,7 +10,7 @@
 #include <asm/unistd.h>
 
 uint64_t buffer [24]; // 64*3 Byte (to ensure entire cache line length 64 Byte is occupied)
-void* addr = ((void*)buffer)+64+16;
+uint64_t* addr = (buffer+10);
 
 static long
        perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
@@ -30,7 +30,7 @@ void flush_cache_line(void* addr)
                     : // no output
                     : "r" (addr));
     asm volatile ("DSB ISH"); // data sync barrier to inner sharable domain
-    asm volatile ("ISB"); //instruction sync barrier
+    asm volatile ("ISB"); // instruction sync barrier
 }
 
 void data_access(int value)
@@ -46,6 +46,10 @@ void flush_flush_test(void* addr, struct perf_event_attr pe, uint64_t count, int
 {
     // first flush
     flush_cache_line(addr);
+
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     // not caching data
 
@@ -125,6 +129,9 @@ void flush_reload_test(void* addr, struct perf_event_attr pe, uint64_t count, in
 
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     asm volatile ("MOV X0, %0;"
                     :: "r"  (buffer[10]));
