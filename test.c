@@ -9,6 +9,8 @@
 #include <linux/perf_event.h>
 #include <asm/unistd.h>
 
+#include "flush.h"
+
 uint64_t buffer [24]; // 64*3 Byte (to ensure entire cache line length 64 Byte is occupied)
 uint64_t* addr = (buffer+10);
 
@@ -22,16 +24,6 @@ static long
                           group_fd, flags);
            return ret;
        }
-
-void flush_cache_line(void* addr)
-{
-    // clean and invalidate cacheline by VA to PoC
-    asm volatile (" DC CIVAC, %0;"
-                    : // no output
-                    : "r" (addr));
-    asm volatile ("DSB ISH"); // data sync barrier to inner sharable domain
-    asm volatile ("ISB"); // instruction sync barrier
-}
 
 void data_access(int value)
 {
@@ -47,20 +39,12 @@ void flush_flush_test(void* addr, struct perf_event_attr pe, uint64_t count, int
     // first flush
     flush_cache_line(addr);
 
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
     // not caching data
 
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
     // second flush
     flush_cache_line(addr);
-
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
 
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     read(fd, &count, sizeof(long long));
@@ -77,14 +61,14 @@ void flush_flush_test(void* addr, struct perf_event_attr pe, uint64_t count, int
     asm volatile ("MOV X0, %0;"
                     :: "r"  (buffer[10]));
 
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
+
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
     // second flush
     flush_cache_line(addr);
-
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
 
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     read(fd, &count, sizeof(long long));
@@ -106,6 +90,9 @@ void flush_reload_test(void* addr, struct perf_event_attr pe, uint64_t count, in
     // cached reload
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     asm volatile ("MOV X0, %0;"
                     :: "r"  (buffer[10]));
@@ -121,9 +108,6 @@ void flush_reload_test(void* addr, struct perf_event_attr pe, uint64_t count, in
     // flush data
 
     flush_cache_line(addr);
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
 
     // uncached reload
 
@@ -174,74 +158,102 @@ int main()
     fftimings [0] = 0; // uncached flush
     fftimings [1] = 0; // cached flush 
 
-    uint64_t uncached_flush = 0;
-    uint64_t cached_flush = 0;
+    uint64_t uncached_flush_avg = 0;
+    uint64_t cached_flush_avg = 0;
 
     printf("Flush+Flush test:\n");
     FILE* fp;
     fp = fopen("fftest.txt", "w" );
 
+    uint64_t ffuncached [10000];
+    uint64_t ffcached [10000];
+
     for(int i = 0; i < 10000; i++)
     {
         flush_flush_test(addr, pe, count, fd, fftimings);
-        uncached_flush += fftimings[0];
-        cached_flush += fftimings[1];
+        // store in array to measure threshold
+        ffuncached [i] = fftimings[0];
+        ffcached [i] = fftimings[1];
+        // write to txt for plotting
         fprintf(fp,"%lli\n", fftimings[0]);
         fprintf(fp,"%lli\n", fftimings[1]);
+        uncached_flush_avg += fftimings[0];
+        cached_flush_avg += fftimings[1];
     }
 
-    
-
-    uncached_flush = uncached_flush/10000;
-    cached_flush = cached_flush/10000;
+    uncached_flush_avg = uncached_flush_avg/10000;
+    cached_flush_avg = cached_flush_avg/10000;
 
     fclose(fp);
 
-    printf("%lli, %lli\n", uncached_flush, cached_flush);
+    printf("%lli, %lli\n", uncached_flush_avg, cached_flush_avg);
 
-    // calculating threshold (with average timings)
+    // calculating threshold
 
-    uint64_t ff_threshold = (cached_flush - uncached_flush)*0.5+uncached_flush;
+    // find min cached flush
+    uint64_t ffmin = 1000;
+    for(int i = 0; i<10000; i++)
+    {
+        if(ffmin>ffcached[i])
+        {
+            ffmin = ffcached[i];
+        }
+    }
 
-    printf("recommended threshold: %lli\n\n", ff_threshold);
+    printf("Recommended Treshold: %lli\n", ffmin-1);
 
     // flush+reload test
 
     uint64_t frtimings [2];
 
-    frtimings [0] = 0; // uncached flush
-    frtimings [1] = 0; // cached flush 
+    frtimings [0] = 0; // cached reload
+    frtimings [1] = 0; // uncached reload
 
-    uint64_t uncached_reload = 0;
-    uint64_t cached_reload = 0;
+    uint64_t cached_reload_avg = 0;
+    uint64_t uncached_reload_avg = 0;
 
     printf("Flush+Reload test:\n");
 
     FILE* fp2;
     fp2 = fopen("frtest.txt", "w" );
 
+    uint64_t frcached [10000];
+    uint64_t fruncached [10000];
+
     for(int i = 0; i < 10000; i++)
     {
         flush_reload_test(addr, pe, count, fd, frtimings);
-        uncached_reload += frtimings[0];
-        cached_reload += frtimings[1];
+        // store in array to measure threshold
+        frcached [i] = frtimings[0];
+        fruncached [i] = frtimings[1];
+        // write to txt for plotting
         fprintf(fp2,"%lli\n", frtimings[0]);
         fprintf(fp2,"%lli\n", frtimings[1]);
+        cached_reload_avg += frtimings[0];
+        uncached_reload_avg += frtimings[1];
     }
 
     
 
-    uncached_reload = uncached_reload/10000;
-    cached_reload = cached_reload/10000;
+    cached_reload_avg = cached_reload_avg/10000;
+    uncached_reload_avg = uncached_reload_avg/10000;
 
     fclose(fp2);
 
-    printf("%lli, %lli\n", uncached_reload, cached_reload);
+    printf("%lli, %lli\n", cached_reload_avg, uncached_reload_avg);
 
-    uint64_t fr_threshold = (cached_reload - uncached_reload)*0.5+uncached_reload;
+    // find min uncached reload
+    uint64_t frmin = 1000;
+    for(int i = 0; i<10000; i++)
+    {
+        // only works if no uncached reload happens to be a cached reload, therefore check if below 300
+        if(frmin>fruncached[i]&&fruncached[i]>300)
+        {
+            frmin = fruncached[i];
+        }
+    }
 
-    printf("recommended threshold: %lli\n\n", fr_threshold);
-
-
+    printf("Recommended Treshold: %lli\n", frmin-1);
+    
     return 0;
 }

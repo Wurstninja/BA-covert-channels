@@ -8,6 +8,8 @@ for x in range (0,9999):
     uncached.append(int(fp.readline()))
     cached.append(int(fp.readline()))
 
+mincached = min(cached)
+
 frequency_uc = [0] * 500
 frequency_c = [0] * 500
 
@@ -23,13 +25,15 @@ for x in range(0,499):
     if(frequency_uc[x]==0):
         frequency_uc[x]=-1000
 
-plt.plot(frequency_c, 'ro',frequency_uc, 'bo')
+
+plt.plot(frequency_c, 'ro', frequency_uc, 'bo')
 red_patch = mpatches.Patch(color='red', label='cached flush')
 blue_patch = mpatches.Patch(color='blue', label='uncached flush')
 plt.legend(handles=[red_patch,blue_patch])
+plt.vlines(mincached, 0, 10000, linestyles="dashed", colors="k")
 
 plt.suptitle('F+F Timings')
-plt.axis([200,500,0,10000])
+plt.axis([150,400,0,10000])
 plt.xlabel('CPU Cycles')
 plt.show()
 
