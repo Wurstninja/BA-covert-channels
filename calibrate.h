@@ -1,29 +1,4 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h> // for uintN_t
-
-// for PERF_COUNT_HW_CPU_CYCLES (timing)
-#include <unistd.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <linux/perf_event.h>
-#include <asm/unistd.h>
-
-#include "flush.h"
-#include "sharedmem.h"
-
-static long
-       perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
-                       int cpu, int group_fd, unsigned long flags)
-       {
-           int ret;
-
-           ret = syscall(__NR_perf_event_open, hw_event, pid, cpu,
-                          group_fd, flags);
-           return ret;
-       }
-
-void flush_flush_test(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
+void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
 {
     // first flush
     flush_cache_line(addr);
@@ -66,7 +41,59 @@ void flush_flush_test(void* addr, struct perf_event_attr pe, uint64_t count, int
     // printf("cached: Used %lld instructions\n", count);
 }
 
-void flush_reload_test(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
+uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
+{
+    uint64_t fftimings [2];
+
+    fftimings [0] = 0; // uncached flush
+    fftimings [1] = 0; // cached flush 
+
+    uint64_t uncached_flush_avg = 0;
+    uint64_t cached_flush_avg = 0;
+
+    printf("Flush+Flush test:\n");
+    FILE* fp;
+    fp = fopen("fftest.txt", "w" );
+
+    uint64_t ffuncached [10000];
+    uint64_t ffcached [10000];
+
+    for(int i = 0; i < 10000; i++)
+    {
+        flush_flush_timing(addr, pe, count, fd, fftimings);
+        // store in array to measure threshold
+        ffuncached [i] = fftimings[0];
+        ffcached [i] = fftimings[1];
+        // write to txt for plotting
+        fprintf(fp,"%lli\n", fftimings[0]);
+        fprintf(fp,"%lli\n", fftimings[1]);
+        uncached_flush_avg += fftimings[0];
+        cached_flush_avg += fftimings[1];
+    }
+
+    uncached_flush_avg = uncached_flush_avg/10000;
+    cached_flush_avg = cached_flush_avg/10000;
+
+    fclose(fp);
+
+    printf("%lli, %lli\n", uncached_flush_avg, cached_flush_avg);
+
+    // calculating threshold
+
+    // find min cached flush
+    uint64_t ffmin = 1000;
+    for(int i = 0; i<10000; i++)
+    {
+        if(ffmin>ffcached[i])
+        {
+            ffmin = ffcached[i];
+        }
+    }
+
+    return ffmin-1;
+}
+
+void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
 {
     // load data
     
@@ -118,81 +145,8 @@ void flush_reload_test(void* addr, struct perf_event_attr pe, uint64_t count, in
     frtimings[1] = count;
 }
 
-int main()
-{   
-    // setting up PERF_COUNT_HW_CPU_CYCLES
-    struct perf_event_attr pe;
-    uint64_t count;
-    int fd;
-
-    memset(&pe, 0, sizeof(struct perf_event_attr));
-    pe.type = PERF_TYPE_HARDWARE;
-    pe.size = sizeof(struct perf_event_attr);
-    pe.config = PERF_COUNT_HW_CPU_CYCLES;
-    pe.disabled = 1;
-    pe.exclude_kernel = 1;
-    pe.exclude_hv = 1;
-
-    fd = perf_event_open(&pe, 0, -1, -1, 0);
-    if (fd == -1) {
-        fprintf(stderr, "Error opening leader %llx\n", pe.config);
-        exit(EXIT_FAILURE);
-    }
-
-    
-    // flush+flush test
-
-    uint64_t fftimings [2];
-
-    fftimings [0] = 0; // uncached flush
-    fftimings [1] = 0; // cached flush 
-
-    uint64_t uncached_flush_avg = 0;
-    uint64_t cached_flush_avg = 0;
-
-    printf("Flush+Flush test:\n");
-    FILE* fp;
-    fp = fopen("fftest.txt", "w" );
-
-    uint64_t ffuncached [10000];
-    uint64_t ffcached [10000];
-
-    for(int i = 0; i < 10000; i++)
-    {
-        flush_flush_test(addr, pe, count, fd, fftimings);
-        // store in array to measure threshold
-        ffuncached [i] = fftimings[0];
-        ffcached [i] = fftimings[1];
-        // write to txt for plotting
-        fprintf(fp,"%lli\n", fftimings[0]);
-        fprintf(fp,"%lli\n", fftimings[1]);
-        uncached_flush_avg += fftimings[0];
-        cached_flush_avg += fftimings[1];
-    }
-
-    uncached_flush_avg = uncached_flush_avg/10000;
-    cached_flush_avg = cached_flush_avg/10000;
-
-    fclose(fp);
-
-    printf("%lli, %lli\n", uncached_flush_avg, cached_flush_avg);
-
-    // calculating threshold
-
-    // find min cached flush
-    uint64_t ffmin = 1000;
-    for(int i = 0; i<10000; i++)
-    {
-        if(ffmin>ffcached[i])
-        {
-            ffmin = ffcached[i];
-        }
-    }
-
-    printf("Recommended Treshold: %lli\n", ffmin-1);
-
-    // flush+reload test
-
+uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
+{
     uint64_t frtimings [2];
 
     frtimings [0] = 0; // cached reload
@@ -241,8 +195,6 @@ int main()
             frmin = fruncached[i];
         }
     }
-
-    printf("Recommended Treshold: %lli\n", frmin-1);
     
-    return 0;
+    return frmin-1;
 }
