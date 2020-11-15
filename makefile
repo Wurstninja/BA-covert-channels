@@ -5,11 +5,8 @@ DEPS =
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-all: test sender receiver
+all: sender receiver
 
-
-test: test.o
-	$(CC) -o test test.o
 
 sender: sender.o
 	$(CC) -o sender sender.o

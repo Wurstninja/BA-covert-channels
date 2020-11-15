@@ -1,7 +1,20 @@
+// compare function for q sort
+int comp (const void* x, const void* y)
+{
+    uint64_t m = *((uint64_t*)x);
+    uint64_t n = *((uint64_t*)y);
+    if(m > n) return 1;
+    if(m < n) return -1;
+    return 0;
+}
+
 void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
 {
     // first flush
     flush_cache_line(addr);
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     // not caching data
 
@@ -9,6 +22,9 @@ void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, i
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
     // second flush
     flush_cache_line(addr);
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     read(fd, &count, sizeof(long long));
@@ -19,6 +35,9 @@ void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, i
 
     // first flush
     flush_cache_line(addr);
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     // cache data
 
@@ -33,6 +52,9 @@ void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, i
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
     // second flush
     flush_cache_line(addr);
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
     read(fd, &count, sizeof(long long));
@@ -70,9 +92,21 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
         uncached_flush_avg += fftimings[0];
         cached_flush_avg += fftimings[1];
     }
-
+    
+    // calc avg
     uncached_flush_avg = uncached_flush_avg/10000;
     cached_flush_avg = cached_flush_avg/10000;
+
+    // calc cached median
+    qsort(ffcached, sizeof(ffcached)/sizeof(*ffcached), sizeof(*ffcached), comp);
+    uint64_t median_c = (ffcached[10000/2]+ffcached[10000/2-1])/2;
+    printf("cached median: %lli\n", median_c);
+
+    // calc uncached median
+    qsort(ffuncached, sizeof(ffuncached)/sizeof(*ffuncached), sizeof(*ffuncached), comp);
+    uint64_t median_uc = (ffuncached[10000/2]+ffuncached[10000/2-1])/2;
+    printf("uncached median: %lli\n", median_uc);
+    
 
     fclose(fp);
 
@@ -84,16 +118,21 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
     uint64_t ffmin = 1000;
     for(int i = 0; i<10000; i++)
     {
+        // check for lowest cached timing
         if(ffmin>ffcached[i])
         {
-            ffmin = ffcached[i];
+            // but still close to other cached timings 
+            if(ffcached[i]>median_c - (median_c - median_uc)*0.3)
+            {
+                ffmin = ffcached[i];
+            }
         }
     }
 
     return ffmin-1;
 }
 
-void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
+void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
 {
     // load data
     
@@ -124,6 +163,10 @@ void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, 
     // flush data
 
     flush_cache_line(addr);
+
+    // data, instruction barrier
+    asm volatile ("DSB SY");
+    asm volatile ("ISB");
 
     // uncached reload
 
@@ -165,7 +208,7 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
 
     for(int i = 0; i < 10000; i++)
     {
-        flush_reload_test(addr, pe, count, fd, frtimings);
+        flush_reload_timing(addr, pe, count, fd, frtimings);
         // store in array to measure threshold
         frcached [i] = frtimings[0];
         fruncached [i] = frtimings[1];

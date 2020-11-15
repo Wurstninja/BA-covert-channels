@@ -4,6 +4,4 @@ void flush_cache_line(void* addr)
     asm volatile (" DC CIVAC, %0;"
                     : // no output
                     : "r" (addr));
-    asm volatile ("DSB ISH"); // data sync barrier to inner sharable domain
-    asm volatile ("ISB"); //instruction sync barrier
 }
