@@ -11,6 +11,7 @@
 #include <asm/unistd.h>
 
 #include "sharedmem.h"
+#include "flush.h"
 
 
 
@@ -34,6 +35,7 @@ int main()
 
         asm volatile ("MOV X0, %0;"
                         :: "r"  (buffer[10]));
+                        
         // data, instruction barrier
         asm volatile ("DSB SY");
         asm volatile ("ISB");

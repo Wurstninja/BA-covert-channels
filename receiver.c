@@ -60,6 +60,7 @@ int main()
     uint64_t start_sec;
     uint64_t frequency = 5000000;
     uint64_t hits = 0;
+    uint64_t miss = 0;
 
     for(int i = 0; i<10000; i++)
     {

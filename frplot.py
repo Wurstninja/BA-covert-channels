@@ -5,14 +5,21 @@ fp = open("frtest.txt", "r")
 uncached = []
 cached = []
 for x in range (0,9999):
-    uncached.append(int(fp.readline()))
     cached.append(int(fp.readline()))
+    uncached.append(int(fp.readline()))
 
-min = 10000
+sorted(cached)
+median_c = cached[499]
+sorted(uncached)
+median_uc = uncached[499]
+min = 1000
 
-for x in range (0,9999):
-    if(min>cached[x]&cached[x]>300):
-        min=cached[x]
+for x in range(0,499):
+    if(uncached[x]<min):
+        print(median_c)
+        print(median_uc)
+        if(uncached[x]>median_uc - (median_uc - median_c)*0.3):
+            min = uncached[x]
 
 frequency_uc = [0] * 1000
 frequency_c = [0] * 1000
@@ -29,11 +36,11 @@ for x in range(0,1000):
     if(frequency_uc[x]==0):
         frequency_uc[x]=-1000
 
-plt.plot(frequency_c, 'r^',frequency_uc, 'bo')
+plt.plot(frequency_uc, 'r^',frequency_c, 'bo')
 red_patch = mpatches.Patch(color='red', label='uncached reload')
 blue_patch = mpatches.Patch(color='blue', label='cached reload')
 plt.legend(handles=[red_patch,blue_patch])
-plt.vlines(min, 0, 10000, linestyles="dashed", colors="k")
+plt.vlines(min-1, 0, 10000, linestyles="dashed", colors="k")
 
 plt.suptitle('F+R Timings')
 plt.axis([0,1000,0,10000])
