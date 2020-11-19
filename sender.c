@@ -17,12 +17,15 @@
 
 int main()
 {
+    printf("sender %lli\n",nop);
+    printf("sender %lli\n",&nop);
     struct timespec time;
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
     uint64_t frequency = 500000;
 
+    
     for(int i = 0; i< 100000; i++)
     {
         clock_gettime(CLOCK_MONOTONIC, &time);
@@ -33,8 +36,7 @@ int main()
         asm volatile ("DSB SY");
         asm volatile ("ISB");
 
-        asm volatile ("MOV X0, %0;"
-                        :: "r"  (buffer[10]));
+        nop();
                         
         // data, instruction barrier
         asm volatile ("DSB SY");

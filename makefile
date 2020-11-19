@@ -6,10 +6,19 @@ DEPS =
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 all: sender receiver
-
+	
 
 sender: sender.o
-	$(CC) -o sender sender.o
+	$(CC) -c -fpic sharedmem.c
+	$(CC) -shared -o libsharedmem.so sharedmem.o
+	$(CC) -L. -o sender sender.o -lsharedmem
 
-receiver.o: receiver.c
-	$(CC) $(CFLAGS) -c receiver.c
+receiver: receiver.o
+	
+	$(CC) -L. -o receiver receiver.o -lsharedmem
+
+runsender:
+	@LD_LIBRARY_PATH=./ ./sender
+
+runreceiver:
+	@LD_LIBRARY_PATH=./ ./receiver

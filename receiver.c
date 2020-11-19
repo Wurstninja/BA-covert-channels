@@ -28,6 +28,8 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
 
 int main()
 {   
+    printf("rec %lli\n",nop);
+    printf("rec %lli\n",&nop);
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
     uint64_t count;
@@ -62,6 +64,7 @@ int main()
     uint64_t hits = 0;
     uint64_t miss = 0;
 
+    
     for(int i = 0; i<10000; i++)
     {
         clock_gettime(CLOCK_MONOTONIC, &time);
