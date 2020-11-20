@@ -28,8 +28,6 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
 
 int main()
 {   
-    printf("rec %lli\n",nop);
-    printf("rec %lli\n",&nop);
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
     uint64_t count;
@@ -49,8 +47,8 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    // calc threshold
-    uint64_t threshold = flush_flush_threshold(addr, pe, count, fd);
+    // calc threshold 'i' for instruction 'd' for data
+    uint64_t threshold = flush_flush_threshold(addr, pe, count, fd,'i');
 
     printf("Recommended Threshold: %lli\n", threshold);
 
@@ -60,7 +58,7 @@ int main()
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
-    uint64_t frequency = 5000000;
+    uint64_t interval = 100000000;
     uint64_t hits = 0;
     uint64_t miss = 0;
 
@@ -78,7 +76,7 @@ int main()
         ioctl(fd, PERF_EVENT_IOC_RESET, 0);
         ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-        flush_cache_line(addr);
+        flush_cache_line_I(nop+64);
 
         // data, instruction barrier
         asm volatile ("DSB SY");
@@ -88,11 +86,11 @@ int main()
         read(fd, &count, sizeof(long long));
         if(count<=threshold)
         {
-            // printf("miss %lli\n", count);
+            printf("miss %lli\n", count);
         }
         else
         {
-            // printf("hit %lli\n", count);
+            printf("hit %lli\n", count);
             hits++;
         }
         if(i%100==0)
@@ -105,7 +103,7 @@ int main()
             printf("\n");
         }
         
-        start_nsec += frequency;
+        start_nsec += interval;
         if(start_nsec > 999999999) // nanoseconds overflow
         {
             start_nsec -= 1000000000;

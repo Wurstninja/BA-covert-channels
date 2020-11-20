@@ -17,13 +17,16 @@
 
 int main()
 {
-    printf("sender %lli\n",nop);
-    printf("sender %lli\n",&nop);
+    while(1)
+    {
+        nop();
+    }
+    printf("%p\n",blubb());
     struct timespec time;
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
-    uint64_t frequency = 500000;
+    uint64_t frequency = 0;
 
     
     for(int i = 0; i< 100000; i++)
@@ -41,7 +44,7 @@ int main()
         // data, instruction barrier
         asm volatile ("DSB SY");
         asm volatile ("ISB");
-
+    
         start_nsec += frequency;
         if(start_nsec > 999999999) // nanoseconds overflow
         {
