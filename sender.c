@@ -17,18 +17,30 @@
 
 int main()
 {
-    while(1)
+    sleep(1);
+    // open existing shared mem
+    int shm_fd = shm_open("sharedmem99", O_RDWR, 0);
+    if (shm_fd == -1)
     {
-        nop();
+        printf("shm_open failed\n");
+        exit(1);
     }
-    printf("%p\n",blubb());
+    // map shared mem into memory
+    uint64_t* sharedmem = (uint64_t*) mmap(NULL, SIZE, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED, shm_fd, 0);
+    if (sharedmem == MAP_FAILED)
+    {
+        printf("mmap failed\n");
+        exit(1);
+    }
+    printf("sender: %li\n",sharedmem[10]);
+    exit(0);
     struct timespec time;
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
-    uint64_t frequency = 0;
+    uint64_t frequency = 500000;
 
-    
     for(int i = 0; i< 100000; i++)
     {
         clock_gettime(CLOCK_MONOTONIC, &time);
@@ -39,12 +51,13 @@ int main()
         asm volatile ("DSB SY");
         asm volatile ("ISB");
 
-        nop();
+        asm volatile ("MOV X0, %0;"
+                        :: "r"  (buffer[10]));
                         
         // data, instruction barrier
         asm volatile ("DSB SY");
         asm volatile ("ISB");
-    
+
         start_nsec += frequency;
         if(start_nsec > 999999999) // nanoseconds overflow
         {

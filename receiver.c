@@ -28,6 +28,31 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
 
 int main()
 {   
+    // create shared mem
+    int shm_fd = shm_open("sharedmem99", O_CREAT | O_EXCL | O_RDWR,
+                                 S_IRUSR | S_IWUSR);
+        if (shm_fd == -1)
+        {
+            printf("shm_open failed\n");
+            exit(1);
+        }
+    // set size of shared mem object              
+    if (ftruncate(shm_fd, SIZE) == -1)
+    {
+        printf("ftruncate failed\n");
+        exit(1);
+    }
+    // map shared mem into memory
+    uint64_t* sharedmem = (uint64_t*) mmap(NULL, SIZE, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED, shm_fd, 0);
+    if (sharedmem == MAP_FAILED)
+    {
+        printf("mmap failed\n");
+        exit(1);
+    }
+    sharedmem[10] = 1337;
+    printf("receiver:%li\n",sharedmem[10]);
+    exit(0);
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
     uint64_t count;
@@ -47,8 +72,8 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    // calc threshold 'i' for instruction 'd' for data
-    uint64_t threshold = flush_flush_threshold(addr, pe, count, fd,'i');
+    // calc threshold
+    uint64_t threshold = flush_flush_threshold(addr, pe, count, fd);
 
     printf("Recommended Threshold: %lli\n", threshold);
 
@@ -58,11 +83,10 @@ int main()
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
-    uint64_t interval = 100000000;
+    uint64_t frequency = 5000000;
     uint64_t hits = 0;
     uint64_t miss = 0;
 
-    
     for(int i = 0; i<10000; i++)
     {
         clock_gettime(CLOCK_MONOTONIC, &time);
@@ -76,7 +100,7 @@ int main()
         ioctl(fd, PERF_EVENT_IOC_RESET, 0);
         ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-        flush_cache_line_I(nop+64);
+        flush_cache_line(addr);
 
         // data, instruction barrier
         asm volatile ("DSB SY");
@@ -86,11 +110,11 @@ int main()
         read(fd, &count, sizeof(long long));
         if(count<=threshold)
         {
-            printf("miss %lli\n", count);
+            // printf("miss %lli\n", count);
         }
         else
         {
-            printf("hit %lli\n", count);
+            // printf("hit %lli\n", count);
             hits++;
         }
         if(i%100==0)
@@ -103,7 +127,7 @@ int main()
             printf("\n");
         }
         
-        start_nsec += interval;
+        start_nsec += frequency;
         if(start_nsec > 999999999) // nanoseconds overflow
         {
             start_nsec -= 1000000000;

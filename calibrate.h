@@ -8,10 +8,10 @@ int comp (const void* x, const void* y)
     return 0;
 }
 
-void flush_flush_timing_D(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
+void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
 {
     // first flush
-    flush_cache_line_D(addr);
+    flush_cache_line(addr);
     // data, instruction barrier
     asm volatile ("DSB SY");
     asm volatile ("ISB");
@@ -21,7 +21,7 @@ void flush_flush_timing_D(void* addr, struct perf_event_attr pe, uint64_t count,
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
     // second flush
-    flush_cache_line_D(addr);
+    flush_cache_line(addr);
     // data, instruction barrier
     asm volatile ("DSB SY");
     asm volatile ("ISB");
@@ -34,7 +34,7 @@ void flush_flush_timing_D(void* addr, struct perf_event_attr pe, uint64_t count,
     // printf("not cached: Used %lld instructions\n", count);
 
     // first flush
-    flush_cache_line_D(addr);
+    flush_cache_line(addr);
     // data, instruction barrier
     asm volatile ("DSB SY");
     asm volatile ("ISB");
@@ -51,7 +51,7 @@ void flush_flush_timing_D(void* addr, struct perf_event_attr pe, uint64_t count,
     ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
     // second flush
-    flush_cache_line_D(addr);
+    flush_cache_line(addr);
     // data, instruction barrier
     asm volatile ("DSB SY");
     asm volatile ("ISB");
@@ -63,61 +63,7 @@ void flush_flush_timing_D(void* addr, struct perf_event_attr pe, uint64_t count,
     // printf("cached: Used %lld instructions\n", count);
 }
 
-void flush_flush_timing_I(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
-{
-    // first flush
-    flush_cache_line_I(nop+64);
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    // not caching data
-
-    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-    // second flush
-    flush_cache_line_I(nop+64);
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(fd, &count, sizeof(long long));
-
-    fftimings[0] = count;
-
-    // printf("not cached: Used %lld instructions\n", count);
-
-    // first flush
-    flush_cache_line_I(nop+64);
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    // cache data
-
-    nop();
-
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-    ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-    // second flush
-    flush_cache_line_I(nop+64);
-    // data, instruction barrier
-    asm volatile ("DSB SY");
-    asm volatile ("ISB");
-
-    ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(fd, &count, sizeof(long long));
-
-    fftimings[1] = count;
-    // printf("cached: Used %lld instructions\n", count);
-}
-
-uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd, char cachetype)
+uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
 {
     uint64_t fftimings [2];
 
@@ -134,40 +80,17 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
     uint64_t ffuncached [10000];
     uint64_t ffcached [10000];
 
-    // check if instruction cache or data cache should be used
-    if(cachetype=='i')
+    for(int i = 0; i < 10000; i++)
     {
-        for(int i = 0; i < 10000; i++)
-        {
-            flush_flush_timing_I(addr, pe, count, fd, fftimings);
-            // store in array to measure threshold
-            ffuncached [i] = fftimings[0];
-            ffcached [i] = fftimings[1];
-            // write to txt for plotting
-            fprintf(fp,"%lli\n", fftimings[0]);
-            fprintf(fp,"%lli\n", fftimings[1]);
-            uncached_flush_avg += fftimings[0];
-            cached_flush_avg += fftimings[1];
-        }
-    }
-    if(cachetype=='d')
-    {
-        for(int i = 0; i < 10000; i++)
-        {
-            flush_flush_timing_D(addr, pe, count, fd, fftimings);
-            // store in array to measure threshold
-            ffuncached [i] = fftimings[0];
-            ffcached [i] = fftimings[1];
-            // write to txt for plotting
-            fprintf(fp,"%lli\n", fftimings[0]);
-            fprintf(fp,"%lli\n", fftimings[1]);
-            uncached_flush_avg += fftimings[0];
-            cached_flush_avg += fftimings[1];
-        }
-    }
-    if(cachetype!='d'&&cachetype!='i')
-    {
-        fprintf(stderr,"unknown cachetype");
+        flush_flush_timing(addr, pe, count, fd, fftimings);
+        // store in array to measure threshold
+        ffuncached [i] = fftimings[0];
+        ffcached [i] = fftimings[1];
+        // write to txt for plotting
+        fprintf(fp,"%lli\n", fftimings[0]);
+        fprintf(fp,"%lli\n", fftimings[1]);
+        uncached_flush_avg += fftimings[0];
+        cached_flush_avg += fftimings[1];
     }
     
     // calc avg
@@ -211,7 +134,7 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
     return ffmin-1;
 }
 
-void flush_reload_timing_D(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
+void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
 {
     // load data
     
@@ -241,7 +164,7 @@ void flush_reload_timing_D(void* addr, struct perf_event_attr pe, uint64_t count
 
     // flush data
 
-    flush_cache_line_D(addr);
+    flush_cache_line(addr);
 
     // data, instruction barrier
     asm volatile ("DSB SY");
@@ -267,7 +190,7 @@ void flush_reload_timing_D(void* addr, struct perf_event_attr pe, uint64_t count
     frtimings[1] = count;
 }
 
-uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd, char cachetype)
+uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
 {
     uint64_t frtimings [2];
 
@@ -287,7 +210,7 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
 
     for(int i = 0; i < 10000; i++)
     {
-        flush_reload_timing_D(addr, pe, count, fd, frtimings);
+        flush_reload_timing(addr, pe, count, fd, frtimings);
         // store in array to measure threshold
         frcached [i] = frtimings[0];
         fruncached [i] = frtimings[1];
