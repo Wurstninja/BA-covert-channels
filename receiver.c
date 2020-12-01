@@ -28,8 +28,11 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
 
 int main()
 {   
+    // unlink shared memory
+    shm_unlink("sharedmem");
+
     // create shared mem
-    int shm_fd = shm_open("sharedmem99", O_CREAT | O_EXCL | O_RDWR,
+    int shm_fd = shm_open("sharedmem", O_CREAT | O_EXCL | O_RDWR,
                                  S_IRUSR | S_IWUSR);
         if (shm_fd == -1)
         {
@@ -45,14 +48,14 @@ int main()
     // map shared mem into memory
     uint64_t* sharedmem = (uint64_t*) mmap(NULL, SIZE, PROT_READ | PROT_WRITE, 
                     MAP_SHARED, shm_fd, 0);
-    if (sharedmem == MAP_FAILED)
-    {
-        printf("mmap failed\n");
-        exit(1);
-    }
-    sharedmem[10] = 1337;
-    printf("receiver:%li\n",sharedmem[10]);
-    exit(0);
+        if (sharedmem == MAP_FAILED)
+        {
+            printf("mmap failed\n");
+            exit(1);
+        }
+    uint64_t* addr = (sharedmem+10);
+    
+    
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
     uint64_t count;
@@ -83,7 +86,7 @@ int main()
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
-    uint64_t frequency = 5000000;
+    uint64_t interval = 100000000;
     uint64_t hits = 0;
     uint64_t miss = 0;
 
@@ -110,11 +113,11 @@ int main()
         read(fd, &count, sizeof(long long));
         if(count<=threshold)
         {
-            // printf("miss %lli\n", count);
+            printf("miss %lli\n", count);
         }
         else
         {
-            // printf("hit %lli\n", count);
+            printf("hit %lli\n", count);
             hits++;
         }
         if(i%100==0)
@@ -127,7 +130,7 @@ int main()
             printf("\n");
         }
         
-        start_nsec += frequency;
+        start_nsec += interval;
         if(start_nsec > 999999999) // nanoseconds overflow
         {
             start_nsec -= 1000000000;
@@ -137,9 +140,14 @@ int main()
         time.tv_sec = start_sec;
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &time, NULL);
     }
-    
 
-    //printf("%lli,%lli\n",count,count2);
+    // unlink shared memory
+    shm_fd = shm_unlink("sharedmem");
+        if (shm_fd == -1)
+        {
+            printf("shm_unlink failed\n");
+            exit(1);
+        }
 
     return 0;
 }

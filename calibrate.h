@@ -1,3 +1,5 @@
+#define SIZE 192
+
 // compare function for q sort
 int comp (const void* x, const void* y)
 {
@@ -8,7 +10,7 @@ int comp (const void* x, const void* y)
     return 0;
 }
 
-void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
+void flush_flush_timing(void* addr, uint64_t* buffer, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* fftimings)
 {
     // first flush
     flush_cache_line(addr);
@@ -65,6 +67,22 @@ void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, i
 
 uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
 {
+    // open existing shared mem
+    int shm_fd = shm_open("sharedmem", O_RDWR, 0);
+        if (shm_fd == -1)
+        {
+            printf("shm_open failed\n");
+            exit(1);
+        }
+    // map shared mem into memory
+    uint64_t* buffer = (uint64_t*) mmap(NULL, SIZE, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED, shm_fd, 0);
+        if (buffer == MAP_FAILED)
+        {
+            printf("mmap failed\n");
+            exit(1);
+        }
+    
     uint64_t fftimings [2];
 
     fftimings [0] = 0; // uncached flush
@@ -82,7 +100,7 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
 
     for(int i = 0; i < 10000; i++)
     {
-        flush_flush_timing(addr, pe, count, fd, fftimings);
+        flush_flush_timing(addr, buffer, pe, count, fd, fftimings);
         // store in array to measure threshold
         ffuncached [i] = fftimings[0];
         ffcached [i] = fftimings[1];
@@ -134,10 +152,9 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
     return ffmin-1;
 }
 
-void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
+void flush_reload_timing(void* addr, uint64_t* buffer, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
 {
     // load data
-    
     asm volatile ("MOV X0, %0;"
                     :: "r"  (buffer[10]));
     // data, instruction barrier
@@ -192,6 +209,22 @@ void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, 
 
 uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t count, int fd)
 {
+    // open existing shared mem
+    int shm_fd = shm_open("sharedmem", O_RDWR, 0);
+        if (shm_fd == -1)
+        {
+            printf("shm_open failed\n");
+            exit(1);
+        }
+    // map shared mem into memory
+    uint64_t* buffer = (uint64_t*) mmap(NULL, SIZE, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED, shm_fd, 0);
+        if (buffer == MAP_FAILED)
+        {
+            printf("mmap failed\n");
+            exit(1);
+        }
+    
     uint64_t frtimings [2];
 
     frtimings [0] = 0; // cached reload
@@ -210,7 +243,7 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
 
     for(int i = 0; i < 10000; i++)
     {
-        flush_reload_timing(addr, pe, count, fd, frtimings);
+        flush_reload_timing(addr, buffer, pe, count, fd, frtimings);
         // store in array to measure threshold
         frcached [i] = frtimings[0];
         fruncached [i] = frtimings[1];
