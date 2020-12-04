@@ -39,7 +39,7 @@ int main()
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
-    uint64_t interval = 0;
+    uint64_t interval = 1000000;
 
     for(int i = 0; i< 1000000; i++)
     {
@@ -51,8 +51,7 @@ int main()
         asm volatile ("DSB SY");
         asm volatile ("ISB");
 
-        asm volatile ("MOV X0, %0;"
-                        :: "r"  (sharedmem[10]));
+        puts("sent");
                         
         // data, instruction barrier
         asm volatile ("DSB SY");

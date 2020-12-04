@@ -90,7 +90,10 @@ int main()
     uint64_t hits = 0;
     uint64_t miss = 0;
 
-    for(int i = 0; i<10000; i++)
+    FILE* fp_exec;
+    fp_exec = fopen("ffexec.txt", "w" );
+
+    for(int i = 0; i<1000; i++)
     {
         clock_gettime(CLOCK_MONOTONIC, &time);
         start_nsec = time.tv_nsec;
@@ -103,7 +106,7 @@ int main()
         ioctl(fd, PERF_EVENT_IOC_RESET, 0);
         ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-        flush_cache_line(addr);
+        flush_cache_line(puts);
 
         // data, instruction barrier
         asm volatile ("DSB SY");
@@ -111,7 +114,9 @@ int main()
 
         ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
         read(fd, &count, sizeof(long long));
-        if(count<=threshold)
+
+        fprintf(fp_exec,"%lli\n", count);
+        /*if(count<=threshold)
         {
             printf("miss %lli\n", count);
         }
@@ -119,10 +124,10 @@ int main()
         {
             printf("hit %lli\n", count);
             hits++;
-        }
+        }*/
         if(i%100==0)
         {
-            printf("%lli ", hits);
+            printf("%lli \n", hits);
             hits = 0;
         }
         if(i%1000==0) 
