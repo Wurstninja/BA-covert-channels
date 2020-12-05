@@ -17,24 +17,6 @@
 
 int main()
 {
-    sleep(1);
-    // open existing shared mem
-    int shm_fd = shm_open("sharedmem", O_RDONLY, 0);
-        if (shm_fd == -1)
-        {
-            printf("shm_open failed\n");
-            exit(1);
-        }
-    // map shared mem into memory
-    uint64_t* sharedmem = (uint64_t*) mmap(NULL, SIZE, PROT_READ, 
-                    MAP_SHARED, shm_fd, 0);
-        if (sharedmem == MAP_FAILED)
-        {
-            printf("mmap failed\n");
-            exit(1);
-        }
-
-    uint64_t* addr = (sharedmem+10);
     struct timespec time;
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;

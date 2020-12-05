@@ -19,8 +19,8 @@ for x in range(0,499):
         if(cached[x]>median_c - (median_c - median_uc)*0.3):
             min = cached[x]
 
-frequency_uc = [0] * 500
-frequency_c = [0] * 500
+frequency_uc = [0] * 1000
+frequency_c = [0] * 1000
 
 for x in range(0,9999):
     frequency_uc[uncached[x]] += 1

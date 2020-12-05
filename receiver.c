@@ -28,34 +28,6 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
 
 int main()
 {   
-    // unlink shared memory
-    shm_unlink("sharedmem");
-
-    // create shared mem
-    int shm_fd = shm_open("sharedmem", O_CREAT | O_EXCL | O_RDWR,
-                                 S_IRUSR | S_IWUSR);
-        if (shm_fd == -1)
-        {
-            printf("shm_open failed\n");
-            exit(1);
-        }
-    // set size of shared mem object              
-    if (ftruncate(shm_fd, SIZE) == -1)
-    {
-        printf("ftruncate failed\n");
-        exit(1);
-    }
-    // map shared mem into memory
-    uint64_t* sharedmem = (uint64_t*) mmap(NULL, SIZE, PROT_READ | PROT_WRITE, 
-                    MAP_SHARED, shm_fd, 0);
-        if (sharedmem == MAP_FAILED)
-        {
-            printf("mmap failed\n");
-            exit(1);
-        }
-    uint64_t* addr = (sharedmem+10);
-    
-    
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
     uint64_t count;
@@ -76,7 +48,7 @@ int main()
     }
 
     // calc threshold
-    uint64_t threshold = flush_flush_threshold(addr, pe, count, fd);
+    uint64_t threshold = flush_flush_threshold(puts, pe, count, fd);
 
     printf("Recommended Threshold: %lli\n", threshold);
 
@@ -116,7 +88,7 @@ int main()
         read(fd, &count, sizeof(long long));
 
         fprintf(fp_exec,"%lli\n", count);
-        /*if(count<=threshold)
+        if(count<=threshold)
         {
             printf("miss %lli\n", count);
         }
@@ -124,10 +96,10 @@ int main()
         {
             printf("hit %lli\n", count);
             hits++;
-        }*/
+        }
         if(i%100==0)
         {
-            printf("%lli \n", hits);
+            printf("Hits in 100: %lli \n", hits);
             hits = 0;
         }
         if(i%1000==0) 
@@ -145,14 +117,5 @@ int main()
         time.tv_sec = start_sec;
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &time, NULL);
     }
-
-    // unlink shared memory
-    shm_fd = shm_unlink("sharedmem");
-        if (shm_fd == -1)
-        {
-            printf("shm_unlink failed\n");
-            exit(1);
-        }
-
     return 0;
 }

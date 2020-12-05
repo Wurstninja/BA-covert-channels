@@ -10,9 +10,6 @@
 
 #define SIZE 192
 
-// shared mem to send 0 and 1 via not caching and caching the data
-
-
 extern uint64_t* sharedmem; 
 
 void init_sharedmem();
