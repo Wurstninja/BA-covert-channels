@@ -43,7 +43,7 @@ void flush_flush_timing(void* addr, struct perf_event_attr pe, uint64_t count, i
 
     // cache data
 
-    puts("puts");
+    uint64_t x = *((uint64_t*)&puts);
 
     // data, instruction barrier
     asm volatile ("DSB SY");
@@ -139,7 +139,7 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
 void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
 {
     // load data
-    puts("puts");
+    uint64_t x = *((uint64_t*)&puts);
     // data, instruction barrier
     asm volatile ("DSB SY");
     asm volatile ("ISB");
@@ -151,7 +151,7 @@ void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, 
     asm volatile ("DSB SY");
     asm volatile ("ISB");
 
-    puts("puts");
+    x = *((uint64_t*)&puts);
     // data, instruction barrier
     asm volatile ("DSB SY");
     asm volatile ("ISB");
@@ -177,7 +177,7 @@ void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, 
     asm volatile ("DSB SY");
     asm volatile ("ISB");
 
-    puts("puts");
+    x = *((uint64_t*)&puts);
     // data, instruction barrier
     asm volatile ("DSB SY");
     asm volatile ("ISB");
