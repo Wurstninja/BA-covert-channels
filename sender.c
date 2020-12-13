@@ -12,6 +12,7 @@
 
 #include "sharedmem.h"
 #include "flush.h"
+#include "ethernet_setup.h"
 
 
 
@@ -35,13 +36,30 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
+    uint16_t inputlength = 250; // set to inputlength (check if more than 36 and less than 1500)
+    // generate ethernet frame
+
+    uint8_t preamble [56];
+    uint8_t sfd [8];
+    uint8_t macheader [112];
+    uint8_t payload [inputlength];
+    uint8_t checksum [32];
+
+    uint8_t ethernet_frame[2000];
+
+    set_preamble(preamble);
+    set_sfd(sfd);
+    set_macheader(macheader, inputlength);
+    // set payload
+    // set checksum
+    map_ethernet_frame(ethernet_frame);
+    
+
     struct timespec time;
     uint64_t end_nsec;
     uint64_t end_sec;
-    uint64_t interval = 1000000;
+    uint64_t interval = 10000000;
     uint64_t store; // used to cache puts 
-
-    uint8_t payload [100]; // TODO: input string map onto bit payload
     for(int i = 0; i < 100; i++)
     {
         clock_gettime(CLOCK_MONOTONIC, &time);
@@ -56,7 +74,7 @@ int main(int argc, char* argv[])
             }
         while(1) // do while still in the same frame
         {
-            if(payload[i]&mode)             // bit 1 and F+R
+            if(ethernet_frame[i]&mode)             // bit 1 and F+R
             {
                 // data, instruction barrier
                 asm volatile ("DSB SY");
@@ -68,7 +86,7 @@ int main(int argc, char* argv[])
                 asm volatile ("DSB SY");
                 asm volatile ("ISB");
             }
-            else if(payload[i]==1&&mode==0) // bit 1 and F+F
+            else if(ethernet_frame[i]==1&&mode==0) // bit 1 and F+F
             {
                 // data, instruction barrier
                 asm volatile ("DSB SY");
@@ -80,7 +98,7 @@ int main(int argc, char* argv[])
                 asm volatile ("DSB SY");
                 asm volatile ("ISB");
             }
-            else if(!(payload[i]|mode))     // bit 0 and F+F
+            else if(!(ethernet_frame[i]|mode))     // bit 0 and F+F
             {
                 // data, instruction barrier
                 asm volatile ("DSB SY");
@@ -110,7 +128,6 @@ int main(int argc, char* argv[])
             clock_gettime(CLOCK_MONOTONIC, &time);
             if(time.tv_nsec>=end_nsec&&time.tv_sec>=end_sec)
             {
-                printf("over \n");
                 break;
             }
 

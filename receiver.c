@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
     clock_gettime(CLOCK_MONOTONIC, &time);
     uint64_t start_nsec;
     uint64_t start_sec;
-    uint64_t interval = 100000000;
+    uint64_t interval = 10000000;
     uint64_t store; // used to cache data during F+R
     uint64_t hits = 0;
     uint64_t miss = 0;
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
     FILE* fp_exec;
     fp_exec = fopen("ffexec.txt", "w" );
 
-    for(int i = 0; i<1000; i++)
+    while(1) // receive loop
     {
         clock_gettime(CLOCK_MONOTONIC, &time);
         start_nsec = time.tv_nsec;
@@ -148,15 +148,6 @@ int main(int argc, char* argv[])
         {
             printf("hit %lli\n", count);
             hits++;
-        }
-        if(i%100==0)
-        {
-            printf("Hits in 100: %lli \n", hits);
-            hits = 0;
-        }
-        if(i%1000==0) 
-        {
-            printf("\n");
         }
         
         start_nsec += interval;
