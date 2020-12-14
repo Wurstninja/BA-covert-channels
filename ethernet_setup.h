@@ -52,10 +52,10 @@ void set_macheader(uint8_t* macheader, uint16_t length)
     }
     
 }
-
+// TODO
 void map_ethernet_frame(uint8_t* ethernet_frame)
 {
-    for(int i = 0; i < 2000; i++)
+    for(int i = 0; i < 56; i++)
     {
         if(i%2) // if bit is odd
         {

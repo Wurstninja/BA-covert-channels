@@ -92,9 +92,15 @@ int main(int argc, char* argv[])
     uint64_t start_sec;
     uint64_t interval = 10000000;
     uint64_t store; // used to cache data during F+R
+    // for debugging
     uint64_t hits = 0;
     uint64_t miss = 0;
 
+    // detect preamble
+    uint8_t preamble_counter = 0;
+    uint8_t last_bit = 0;
+    uint8_t maxcorrect = 5;// correct false pos and neg by reseting when N+1 same bits in a row
+    uint8_t correct = maxcorrect; // decrement for every same bit in a row
     FILE* fp_exec;
     fp_exec = fopen("ffexec.txt", "w" );
 
@@ -138,7 +144,7 @@ int main(int argc, char* argv[])
             ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
             read(fd, &count, sizeof(long long));
         }
-
+    	// print timings
         fprintf(fp_exec,"%lli\n", count);
         if(count<=threshold)
         {
@@ -147,8 +153,66 @@ int main(int argc, char* argv[])
         else
         {
             printf("hit %lli\n", count);
-            hits++;
         }
+        // detect preamble bits 
+        if(preamble_counter<=55)// if preamble done
+        {
+            if(count>threshold) // hit
+            {
+                if(!last_bit)   // if last bit 0
+                {
+                    preamble_counter++;
+                    last_bit = 1;
+                    correct = maxcorrect;
+                }
+                else            // if last bit 1
+                {
+                    if(!correct)// if more than N false pos, neg in a row
+                    {
+                        preamble_counter = 0;
+                        last_bit = 1;
+                        correct = maxcorrect;
+                    }
+                    else        // if still below N false pos, neg in a row
+                    {
+                        preamble_counter++;
+                        last_bit = 1;
+                        correct--;
+                    }
+
+                }
+            }
+            else                // miss
+            {
+                if(last_bit)   // if last bit 1
+                {
+                    preamble_counter++;
+                    last_bit = 0;
+                    correct = maxcorrect;
+                }
+                else            // if last bit 0
+                {
+                    if(!correct)// if more than N false pos, neg in a row
+                    {
+                        preamble_counter = 0;
+                        last_bit = 0;
+                        correct = maxcorrect;
+                    }
+                    else        // if still below N false pos, neg in a row
+                    {
+                        preamble_counter++;
+                        last_bit = 0;
+                        correct--;
+                    }
+
+                }
+            }
+        }
+        else
+        {
+            printf("preamble done\n");
+        }
+
         
         start_nsec += interval;
         if(start_nsec > 999999999) // nanoseconds overflow
