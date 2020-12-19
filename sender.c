@@ -36,42 +36,53 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    uint16_t inputlength = 250; // set to inputlength (check if more than 36 and less than 1500)
-    // generate ethernet frame
-
-    uint8_t preamble [56];
-    uint8_t sfd [8];
-    uint8_t macheader [112];
-    uint8_t payload [inputlength];
-    uint8_t checksum [32];
-
-    uint8_t ethernet_frame[2000];
-
-    set_preamble(preamble);
-    set_sfd(sfd);
-    set_macheader(macheader, inputlength);
-    // set payload
-    // set checksum
-    map_ethernet_frame(ethernet_frame);
+    // read input payload
+    char* input;
+    printf("Message:\n");
+    fgets(input, 1500, stdin);
+    uint16_t true_length = strlen(input) - 1; // length of string - \n
+    uint16_t payload_length; // length that has to be padded up to 46 bytes
+    // when the input is less than 46 bytes, set payload_length to 64 and pad with 0
+    if(true_length<46)
+    {
+        payload_length = 46;
+    }
+    else
+    {
+        payload_length = true_length;
+    }
     
 
+    // generate ethernet frame
+    // preamble + mac header + payload + checksum
+    uint8_t ethernet_frame[64 + 112 + payload_length*8 + 32];
+    // set all bits to 0
+    memset(ethernet_frame, 0, 64 + 112 + payload_length*8 + 32);
+    map_ethernet_frame(ethernet_frame, true_length, input);
+
+    // print ethernet_frame
+    for(int i = 0; i < 64 + 112 + payload_length*8 + 32; i++)
+    {
+        printf("%i:%i\n",i ,ethernet_frame[i]);
+    }
+    
     struct timespec time;
+    struct timespec time2;
     uint64_t end_nsec;
     uint64_t end_sec;
     uint64_t interval = 10000000;
-    uint64_t store; // used to cache puts 
-    for(int i = 0; i < 100; i++)
+    uint64_t store; // used to cache function 
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    end_nsec = time.tv_nsec;
+    end_sec = time.tv_sec;
+    for(int i = 0; i < (64 + 112 + payload_length*8 + 32); i++)
     {
-        clock_gettime(CLOCK_MONOTONIC, &time);
-        end_nsec = time.tv_nsec;
-        end_sec = time.tv_sec;
-
         end_nsec += interval;
-            if(end_nsec > 999999999) // nanoseconds overflow
-            {
-                end_nsec -= 1000000000;
-                end_sec++;
-            }
+        if(end_nsec > 999999999) // nanoseconds overflow
+        {
+            end_nsec -= 1000000000;
+            end_sec++;
+        }
         while(1) // do while still in the same frame
         {
             if(ethernet_frame[i]&mode)             // bit 1 and F+R
