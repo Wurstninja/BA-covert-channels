@@ -11,6 +11,7 @@
 #define SIZE 192
 
 extern uint64_t* sharedmem; 
-
 void init_sharedmem();
 void open_sharedmem();
+
+void nop();

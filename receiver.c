@@ -73,11 +73,11 @@ int main(int argc, char* argv[])
     uint64_t threshold;
     if(!mode) // FF
     {
-        threshold = flush_flush_threshold(puts, pe, count, fd);
+        threshold = flush_flush_threshold(nop, pe, count, fd);
     }
     if(mode) // FR
     {
-        threshold = flush_reload_threshold(puts, pe, count, fd);
+        threshold = flush_reload_threshold(nop, pe, count, fd);
     }
 
     printf("Recommended threshold is: %lli\n",threshold);
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 
     // set up timing sync
     struct timespec time;
-    struct timespec time2;
+    struct timespec time2; // time2 used for debugging
     uint64_t interval = 10000000;
     uint64_t store; // used to cache data during F+R
 
@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     // detect preamble
     uint8_t preamble_counter = 0;
     uint8_t last_bit = 0;
-    uint8_t maxcorrect = 5; // correct false pos and neg by reseting when N same bits in a row
+    uint8_t maxcorrect = 4; // correct false pos and neg by reseting when N same bits in a row
     uint8_t correct = maxcorrect; // decrement for every same bit in a row
 
     // detect sfd
@@ -112,9 +112,16 @@ int main(int argc, char* argv[])
     uint8_t sfd_correct = sfd_maxcorrect; // decrement for every wrong bit
 
     // read mac header
-    uint8_t macheader_counter;
-    uint16_t ethertype = 0;
+    uint8_t macheader_counter = 0;
+    uint16_t ethertype = 0;     // stores payloadlength
     uint16_t ethertype_counter = 0;
+
+    // read payload
+    uint8_t cur_char = 0;      // used to shift received bits onto
+    uint16_t char_counter = 0;
+    uint8_t bit_counter = 0;
+    uint8_t output [1500] = {0}; // TODO ethertype instead of 1500
+
 
     FILE* fp_exec;
     fp_exec = fopen("ffexec.txt", "w" );
@@ -123,6 +130,8 @@ int main(int argc, char* argv[])
 
     while(1) // receive loop
     {
+        clock_gettime(CLOCK_MONOTONIC, &time2);
+        printf("--------------\n%i\n",time2.tv_nsec);
         if(mode) // F+R
         {
             // data, instruction barrier
@@ -131,7 +140,7 @@ int main(int argc, char* argv[])
             ioctl(fd, PERF_EVENT_IOC_RESET, 0);
             ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-            store = *((uint64_t*)&puts);
+            store = *((uint64_t*)&nop);
 
             // data, instruction barrier
             asm volatile ("DSB SY");
@@ -156,7 +165,7 @@ int main(int argc, char* argv[])
             ioctl(fd, PERF_EVENT_IOC_RESET, 0);
             ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 
-            flush_cache_line(puts);
+            flush_cache_line(nop);
 
             // data, instruction barrier
             asm volatile ("DSB SY");
@@ -185,9 +194,42 @@ int main(int argc, char* argv[])
             printf("hit %lli\n", count);
         }
 
-        // detect preamble bits 
+        // detect following preamble bits 
         if(preamble_counter<56)
         {
+            printf("pre:%i\n",preamble_counter);
+            // detect first preamble bit (stricter correct than following bits)
+            // F+F by default detects misses, so a hit should indicate preamble start
+            if(preamble_counter == 0 && !mode) // mode = 0 -> F+F
+            {
+                if(hit)
+                {
+                    correct = 0;
+                    last_bit = hit;
+                    preamble_counter = 1;
+                    goto end;
+                }
+                else
+                {
+                    goto end;
+                }
+            }
+            // F+R by default detects hits, so a miss should indicate second preamble bit
+            if(preamble_counter == 0 && mode) // mode = 1 -> F+R
+            {
+                if(hit)
+                {
+                    goto end;
+                }
+                else
+                {
+                    correct = 0;
+                    last_bit = hit;
+                    preamble_counter = 2;
+                    goto end;
+                }
+            }
+            // detect following preamble bits
             if(hit) // hit
             {
                 if(!last_bit)   // if last bit 0
@@ -238,16 +280,19 @@ int main(int argc, char* argv[])
 
                 }
             }
+            end:
+            asm("nop");
         }
         else if(sfd_counter<8)
         {
+            printf("sfd:%i\n",sfd_counter);
             if((hit)!=sfd[sfd_counter]) // when received bit doesn't match with sfd bit
             {
                 sfd_correct--;
             }
             
             // in last step
-            if(sfd_counter==7&&sfd_correct<=0)
+            if(sfd_counter==7&&sfd_correct<0)
             {
                 // if sfd bits don't match, reset everything
                 printf("SFD bits don't match\n");
@@ -262,8 +307,7 @@ int main(int argc, char* argv[])
         }
         else if(macheader_counter<112)
         {
-            clock_gettime(CLOCK_MONOTONIC, &time2);
-            printf("%lli",time2.tv_nsec);
+            printf("mac:%i\n",macheader_counter);
             // ignore first 96 bits (dst, src address)
             if(macheader_counter>95)
             {
@@ -272,6 +316,25 @@ int main(int argc, char* argv[])
                 printf("ethertype:%i\n",ethertype);
             }   
             macheader_counter++; 
+        }
+        else if(char_counter<1500)
+        {
+            //shift bit onto cur_char
+            cur_char = cur_char | (hit)<<(7-bit_counter);
+            // in last bit of cur_char step
+            if(bit_counter == 7)
+            {
+                printf("-----------------%c++%i\n",(char)cur_char,cur_char);
+                // store to output
+                // next char
+                bit_counter = 0;
+                char_counter++;
+                cur_char = 0;
+            }
+            else
+            {
+                bit_counter++;
+            }
         }
 
         

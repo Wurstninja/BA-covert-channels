@@ -37,9 +37,11 @@ int main(int argc, char* argv[])
     }
 
     // read input payload
-    char* input;
+    char input [1500];
     printf("Message:\n");
     fgets(input, 1500, stdin);
+    printf("%s\n",input);
+    printf("char:%c\n",input[2]);
     uint16_t true_length = strlen(input) - 1; // length of string - \n
     uint16_t payload_length; // length that has to be padded up to 46 bytes
     // when the input is less than 46 bytes, set payload_length to 64 and pad with 0
@@ -59,12 +61,6 @@ int main(int argc, char* argv[])
     // set all bits to 0
     memset(ethernet_frame, 0, 64 + 112 + payload_length*8 + 32);
     map_ethernet_frame(ethernet_frame, true_length, input);
-
-    // print ethernet_frame
-    for(int i = 0; i < 64 + 112 + payload_length*8 + 32; i++)
-    {
-        printf("%i:%i\n",i ,ethernet_frame[i]);
-    }
     
     struct timespec time;
     struct timespec time2;
@@ -91,7 +87,7 @@ int main(int argc, char* argv[])
                 asm volatile ("DSB SY");
                 asm volatile ("ISB");
 
-                store = *((uint64_t*)&puts);
+                store = *((uint64_t*)&nop);
                                 
                 // data, instruction barrier
                 asm volatile ("DSB SY");
@@ -103,7 +99,7 @@ int main(int argc, char* argv[])
                 asm volatile ("DSB SY");
                 asm volatile ("ISB");
 
-                store = *((uint64_t*)&puts);
+                store = *((uint64_t*)&nop);
                                 
                 // data, instruction barrier
                 asm volatile ("DSB SY");
@@ -115,7 +111,7 @@ int main(int argc, char* argv[])
                 asm volatile ("DSB SY");
                 asm volatile ("ISB");
 
-                flush_cache_line(puts);
+                flush_cache_line(nop);
                                 
                 // data, instruction barrier
                 asm volatile ("DSB SY");
@@ -127,18 +123,20 @@ int main(int argc, char* argv[])
                 asm volatile ("DSB SY");
                 asm volatile ("ISB");
 
-                flush_cache_line(puts);
+                flush_cache_line(nop);
                                 
                 // data, instruction barrier
                 asm volatile ("DSB SY");
                 asm volatile ("ISB");
             }
 
-            
+
             // check if frame is over
             clock_gettime(CLOCK_MONOTONIC, &time);
             if(time.tv_nsec>=end_nsec&&time.tv_sec>=end_sec)
             {
+                clock_gettime(CLOCK_MONOTONIC, &time2);
+                printf("%i(%i):%i\n",i, ethernet_frame[i] ,time2.tv_nsec);
                 break;
             }
 
