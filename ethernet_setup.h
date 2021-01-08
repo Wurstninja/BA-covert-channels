@@ -4,6 +4,7 @@
 
 void map_ethernet_frame(uint8_t* ,uint16_t, char*);
 void set_sfd(uint8_t*);
+void map_alternatingbits(uint8_t*);
 
 void set_sfd(uint8_t* sfd)
 {
@@ -86,4 +87,21 @@ void map_ethernet_frame(uint8_t* ethernet_frame ,uint16_t payload_length, char* 
     }
 
     // map checksum 
+}
+
+// for debugging
+void map_alternatingbits(uint8_t* ethernet_frame)
+{
+    for(int i = 0; i < 1000; i++)
+    {
+        if(i%2) // if bit is odd
+        {
+            ethernet_frame [i] = 0;
+        }
+        else
+        {
+            ethernet_frame [i] = 1;
+        }
+        
+    }  
 }

@@ -61,6 +61,9 @@ int main(int argc, char* argv[])
     // set all bits to 0
     memset(ethernet_frame, 0, 64 + 112 + payload_length*8 + 32);
     map_ethernet_frame(ethernet_frame, true_length, input);
+    // uint8_t ethernet_frame[1000];
+    // memset(ethernet_frame, 0, 1000);
+    // map_alternatingbits(ethernet_frame);
     
     struct timespec time;
     struct timespec time2;

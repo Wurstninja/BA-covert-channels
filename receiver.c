@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
     uint8_t sfd [8];
     set_sfd(sfd);
     uint8_t sfd_counter = 0;
-    uint8_t sfd_maxcorrect = 2; // correct N wrong bits
+    uint8_t sfd_maxcorrect = 1; // correct N wrong bits
     uint8_t sfd_correct = sfd_maxcorrect; // decrement for every wrong bit
 
     // read mac header
@@ -130,8 +130,8 @@ int main(int argc, char* argv[])
 
     while(1) // receive loop
     {
-        clock_gettime(CLOCK_MONOTONIC, &time2);
-        printf("--------------\n%i\n",time2.tv_nsec);
+        //clock_gettime(CLOCK_MONOTONIC, &time2);
+        //printf("%i\n",time2.tv_nsec); // just for debugging
         if(mode) // F+R
         {
             // data, instruction barrier
@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
             }
         }
     	// print timings (debug)
-        fprintf(fp_exec,"%lli\n", count);
+        /*fprintf(fp_exec,"%lli\n", count);
         if(!hit)
         {
             printf("miss %lli\n", count);
@@ -192,12 +192,12 @@ int main(int argc, char* argv[])
         else
         {
             printf("hit %lli\n", count);
-        }
+        }*/
 
         // detect following preamble bits 
         if(preamble_counter<56)
         {
-            printf("pre:%i\n",preamble_counter);
+            // printf("pre:%i\n",preamble_counter); // just for debugging
             // detect first preamble bit (stricter correct than following bits)
             // F+F by default detects misses, so a hit should indicate preamble start
             if(preamble_counter == 0 && !mode) // mode = 0 -> F+F
@@ -222,11 +222,11 @@ int main(int argc, char* argv[])
                     goto end;
                 }
                 else
-                {
+                {   
                     correct = 0;
                     last_bit = hit;
-                    preamble_counter = 2;
-                    goto end;
+                    preamble_counter = 2;   // for unknown reason first miss is never detected
+                    goto end;               // there set preamble_counter to 4 instead of 2
                 }
             }
             // detect following preamble bits
@@ -285,7 +285,7 @@ int main(int argc, char* argv[])
         }
         else if(sfd_counter<8)
         {
-            printf("sfd:%i\n",sfd_counter);
+            // printf("sfd:%i\n",sfd_counter); // just for debugging
             if((hit)!=sfd[sfd_counter]) // when received bit doesn't match with sfd bit
             {
                 sfd_correct--;
@@ -301,30 +301,45 @@ int main(int argc, char* argv[])
             }
             if(sfd_counter==7&&sfd_correct>0)
             {
-                printf("matchhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh\n");
+                printf("SFD bits matched\n");
             }
             sfd_counter++;
         }
         else if(macheader_counter<112)
         {
-            printf("mac:%i\n",macheader_counter);
+            // printf("mac:%i\n",macheader_counter); // just for debugging
             // ignore first 96 bits (dst, src address)
             if(macheader_counter>95)
             {
                 ethertype = ethertype | (hit)<<(15-ethertype_counter);
                 ethertype_counter++;
-                printf("ethertype:%i\n",ethertype);
+                // in last step print payloadlength
+                if(macheader_counter==111)
+                {
+                    printf("Payloadlength:%i\n",ethertype);
+                    if(ethertype<46)
+                    {
+                        ethertype = 46;
+                    }
+                    if(ethertype > 1500)
+                    {
+                        printf("Payloadlength must be below 1500 characters\n");
+                        ethertype = 1500;
+                    }
+                }
             }   
             macheader_counter++; 
         }
-        else if(char_counter<1500)
+        else if(char_counter<ethertype)
         {
             //shift bit onto cur_char
             cur_char = cur_char | (hit)<<(7-bit_counter);
             // in last bit of cur_char step
             if(bit_counter == 7)
             {
-                printf("-----------------%c++%i\n",(char)cur_char,cur_char);
+                // printf("-----------------%c++%i\n",(char)cur_char,cur_char);
+                printf("%c",(char)cur_char);
+                fflush(stdout);
                 // store to output
                 // next char
                 bit_counter = 0;
@@ -336,6 +351,17 @@ int main(int argc, char* argv[])
                 bit_counter++;
             }
         }
+        /*else
+        {
+            // reset and prepare for new frame
+
+            preamble_counter = 0;
+            sfd_counter = 0;
+            macheader_counter = 0;
+            ethertype = 0;
+            ethertype_counter = 0;
+            
+        }*/
 
         
         time.tv_nsec += interval;
