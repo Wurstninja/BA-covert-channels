@@ -67,7 +67,6 @@ int main(int argc, char* argv[])
         payload_length = true_length;
     }
     
-
     // generate ethernet frame
     // preamble + mac header + payload + checksum
     if((ethernet_frame = realloc(ethernet_frame, sizeof(uint8_t)*(64 + 112 + payload_length*8 + 32)))
