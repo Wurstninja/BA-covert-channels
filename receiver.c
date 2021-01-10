@@ -351,17 +351,22 @@ int main(int argc, char* argv[])
                 bit_counter++;
             }
         }
-        /*else
+        else
         {
-            // reset and prepare for new frame
-
+            printf("\nPreparing for new Ethernet frame\n");
+            printf("----------------------------------\n");
+            
+            // reset counter and variables 
             preamble_counter = 0;
+            correct = maxcorrect;
             sfd_counter = 0;
+            sfd_correct = sfd_maxcorrect;
             macheader_counter = 0;
+            char_counter = 0;
             ethertype = 0;
             ethertype_counter = 0;
             
-        }*/
+        }
 
         
         time.tv_nsec += interval;

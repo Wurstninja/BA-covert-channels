@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h> // for uintN_t
 #include <time.h> // for sync of sender and receiver
+#include <malloc.h> // for realloc
 
 // for PERF_COUNT_HW_CPU_CYCLES (timing)
 #include <unistd.h>
@@ -35,15 +36,27 @@ int main(int argc, char* argv[])
         printf("with <mode>: FF, FR\n");
         exit(1);
     }
+    // set up variables for the input string
+    char input [1500];
+    uint16_t true_length;
+    uint16_t payload_length;
+    uint8_t* ethernet_frame;
+
+    // set up variables for timing during sending
+    struct timespec time;
+    struct timespec time2;
+    uint64_t end_nsec;
+    uint64_t end_sec;
+    uint64_t interval = 10000000;
+    uint64_t store; // used to cache function
+
+    start: // jump to start to send new Ethernet frame
 
     // read input payload
-    char input [1500];
     printf("Message:\n");
     fgets(input, 1500, stdin);
-    printf("%s\n",input);
-    printf("char:%c\n",input[2]);
-    uint16_t true_length = strlen(input) - 1; // length of string - \n
-    uint16_t payload_length; // length that has to be padded up to 46 bytes
+    true_length = strlen(input) - 1; // length of string - \n
+    payload_length; // length that has to be padded up to 46 bytes
     // when the input is less than 46 bytes, set payload_length to 64 and pad with 0
     if(true_length<46)
     {
@@ -57,7 +70,13 @@ int main(int argc, char* argv[])
 
     // generate ethernet frame
     // preamble + mac header + payload + checksum
-    uint8_t ethernet_frame[64 + 112 + payload_length*8 + 32];
+    if((ethernet_frame = realloc(ethernet_frame, sizeof(uint8_t)*(64 + 112 + payload_length*8 + 32)))
+        == NULL)
+        {
+            printf("Couldn't allocate memory\n");
+            return 1;
+        }
+    // uint8_t ethernet_frame[64 + 112 + payload_length*8 + 32];
     // set all bits to 0
     memset(ethernet_frame, 0, 64 + 112 + payload_length*8 + 32);
     map_ethernet_frame(ethernet_frame, true_length, input);
@@ -65,12 +84,6 @@ int main(int argc, char* argv[])
     // memset(ethernet_frame, 0, 1000);
     // map_alternatingbits(ethernet_frame);
     
-    struct timespec time;
-    struct timespec time2;
-    uint64_t end_nsec;
-    uint64_t end_sec;
-    uint64_t interval = 10000000;
-    uint64_t store; // used to cache function 
     clock_gettime(CLOCK_MONOTONIC, &time);
     end_nsec = time.tv_nsec;
     end_sec = time.tv_sec;
@@ -146,5 +159,9 @@ int main(int argc, char* argv[])
 
         }
     }
+    // preparing to send new ethernet frame
+    printf("Preparing to send next Ethernet frame\n");
+    printf("----------------------------------\n");
+    goto start; // jump to start to send new Ethernet frame
     return 0;
 }

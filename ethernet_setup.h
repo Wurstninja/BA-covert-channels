@@ -68,7 +68,6 @@ void map_ethernet_frame(uint8_t* ethernet_frame ,uint16_t payload_length, char* 
     for(int i = 0; i < length; i++)
     {
         cur = (int)payload[i];
-        printf("int:%i\n", cur);
         // store the ascii bits in ethernet_frame
         for(int k = 0; k < 8; k++)
         {
