@@ -7,6 +7,7 @@
 void map_ethernet_frame(uint8_t* ,uint16_t, char*);
 void set_sfd(uint8_t*);
 void map_alternatingbits(uint8_t*);
+uint16_t gen_crc16(const uint8_t*, uint16_t);
 
 void set_sfd(uint8_t* sfd)
 {
@@ -122,15 +123,17 @@ void map_ethernet_frame(uint8_t* ethernet_frame ,uint16_t payload_length, char* 
     }
 
     // write payload to buffer
-    for(int i = 0; i < payload_length, i++)
-    buffer[14+i] = payload [i];
+    for(int i = 0; i < payload_length; i++)
+    {
+        buffer[14+i] = payload [i];
+    }
 
     // map checksum 
 
-    uint16_t crc = gen_crc16(buffer,14+extendedlength);
+    uint16_t crc_16 = gen_crc16(buffer,14+extendedlength);
     for(int i = 0; i < 16; i++)
     {
-        ethernet_frame[64 + 111 + extendedlength*8 + 4 - i] = 1&crc>>i
+        ethernet_frame[64 + 111 + extendedlength*8 + 32 - i] = 1&crc_16>>i;
     }
     
 }

@@ -1,5 +1,3 @@
-#define SIZE 192
-
 // compare function for q sort
 int comp (const void* x, const void* y)
 {
@@ -97,19 +95,13 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
     uncached_flush_avg = uncached_flush_avg/10000;
     cached_flush_avg = cached_flush_avg/10000;
 
-    printf("Flush+Flush test:\n");
-
-    printf("uncached avg: %lli\ncached avg: %lli\n", uncached_flush_avg, cached_flush_avg);
-
     // calc cached median
     qsort(ffcached, sizeof(ffcached)/sizeof(*ffcached), sizeof(*ffcached), comp);
     uint64_t median_c = (ffcached[10000/2]+ffcached[10000/2-1])/2;
-    printf("cached median: %lli\n", median_c);
 
     // calc uncached median
     qsort(ffuncached, sizeof(ffuncached)/sizeof(*ffuncached), sizeof(*ffuncached), comp);
     uint64_t median_uc = (ffuncached[10000/2]+ffuncached[10000/2-1])/2;
-    printf("uncached median: %lli\n", median_uc);
     
 
     fclose(fp);
@@ -224,19 +216,13 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
 
     fclose(fp2);
 
-    printf("Flush+Reload test:\n");
-
-    printf("cached avg: %lli\nuncached avg: %lli\n", cached_reload_avg, uncached_reload_avg);
-
     // calc cached median
     qsort(frcached, sizeof(frcached)/sizeof(*frcached), sizeof(*frcached), comp);
     uint64_t median_c = (frcached[10000/2]+frcached[10000/2-1])/2;
-    printf("cached median: %lli\n", median_c);
 
     // calc uncached median
     qsort(fruncached, sizeof(fruncached)/sizeof(*fruncached), sizeof(*fruncached), comp);
     uint64_t median_uc = (fruncached[10000/2]+fruncached[10000/2-1])/2;
-    printf("uncached median: %lli\n", median_uc);
 
     // calculating threshold
 

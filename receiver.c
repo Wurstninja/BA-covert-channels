@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h> // for uintN_t
 #include <time.h> // for sync of sender and receiver
+#include <sys/wait.h> // letting parent wait for child
 
 // for PERF_COUNT_HW_CPU_CYCLES (timing)
 #include <unistd.h>
@@ -35,12 +36,10 @@ int main(int argc, char* argv[])
     if(strcmp(argv[1],"FF")==0)
     {
         mode = 0; 
-        printf("FF");
     }
     if(strcmp(argv[1],"FR")==0)
     {
         mode = 1;
-        printf("FR");
     }
     if(mode==42) // if mode is neither FF nor FR
     {
@@ -80,7 +79,30 @@ int main(int argc, char* argv[])
         threshold = flush_reload_threshold(nop, pe, count, fd);
     }
 
-    printf("Recommended threshold is: %lli\n",threshold);
+    // open python script to calc threshold
+    uint32_t statval;
+    if(fork() == 0)
+    {
+        printf("Calculating threshold ... \n");
+        if(mode)
+        {
+            execlp("python", "python", "ffplot.py", NULL, (char*) NULL);
+        }
+        else
+        {
+            execlp("python", "python", "frplot.py", NULL, (char*) NULL);
+        }
+        
+    }
+    else
+    {
+        wait(&statval);
+        if(!WIFEXITED(statval))
+        {
+            printf("Child did not terminate with exit\n");
+        }
+    }
+
     printf("threshold: ");
     scanf("%li", &threshold);
 
@@ -173,7 +195,8 @@ int main(int argc, char* argv[])
 
             ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
             read(fd, &count, sizeof(long long));
-
+            
+            printf("%lli\n",count);
             if(count<threshold)
             {
                 hit = 0;
