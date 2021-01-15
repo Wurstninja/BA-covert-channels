@@ -133,17 +133,27 @@ int main(int argc, char* argv[])
     uint8_t sfd_maxcorrect = 1; // correct N wrong bits
     uint8_t sfd_correct = sfd_maxcorrect; // decrement for every wrong bit
 
+    // ethernet frame
+    uint8_t ethernet_frame [14+1500] = {0}; // store bytes for mac header + payload (used later for crc)
+    uint16_t ethernet_frame_counter = 0;
+    // also used for payload
+    uint8_t bit_counter = 0;        // count bits to know when full char is read
+    uint8_t cur_char = 0;           // used to shift received bits onto
+
     // read mac header
     uint8_t macheader_counter = 0;
     uint16_t ethertype = 0;     // stores payloadlength
     uint16_t ethertype_counter = 0;
 
     // read payload
-    uint8_t cur_char = 0;      // used to shift received bits onto
+    
     uint16_t char_counter = 0;
-    uint8_t bit_counter = 0;
-    uint8_t output [1500] = {0}; // TODO ethertype instead of 1500
+    uint8_t output [1500] = {0};
 
+    // read crc
+    uint8_t crc_counter = 0;
+    uint32_t crc = 0;             // using 16 bit crc, but still sending 32 bit (16 bit padded with 0)
+    char* buffer = malloc(sizeof(char)); // store bytes on buffer and then check with crc
 
     FILE* fp_exec;
     fp_exec = fopen("ffexec.txt", "w" );
@@ -333,7 +343,21 @@ int main(int argc, char* argv[])
         else if(macheader_counter<112)
         {
             // printf("mac:%i\n",macheader_counter); // just for debugging
-            // ignore first 96 bits (dst, src address)
+            //shift bit onto cur_char
+            cur_char = cur_char | (hit)<<(7-bit_counter);
+            // in last bit of cur_char step
+            if(bit_counter == 7)
+            {
+                ethernet_frame[ethernet_frame_counter] = cur_char;
+                // next char
+                bit_counter = 0;
+                ethernet_frame_counter++;
+                cur_char = 0;
+            }
+            else
+            {
+                bit_counter++;
+            }
             if(macheader_counter>95)
             {
                 ethertype = ethertype | (hit)<<(15-ethertype_counter);
@@ -362,6 +386,8 @@ int main(int argc, char* argv[])
             // in last bit of cur_char step
             if(bit_counter == 7)
             {
+                output[char_counter] = cur_char;
+                ethernet_frame[ethernet_frame_counter] = cur_char;
                 // printf("-----------------%c++%i\n",(char)cur_char,cur_char);
                 printf("%c",(char)cur_char);
                 fflush(stdout);
@@ -369,12 +395,37 @@ int main(int argc, char* argv[])
                 // next char
                 bit_counter = 0;
                 char_counter++;
+                ethernet_frame_counter++;
                 cur_char = 0;
             }
             else
             {
                 bit_counter++;
             }
+        }
+        else if(crc_counter<32)
+        {
+            crc = crc | (hit)<<(31-crc_counter);
+            // in last step
+            if(crc_counter == 31)
+            {
+                buffer = realloc(buffer, sizeof(char)*(ethertype+14));
+                // map macheader and payload onto buffer
+                for(int i = 0; i < ethertype; i++)
+                {
+                    buffer[0] = (char)ethernet_frame [0];
+                }
+                // if crc matches
+                if(crc == (uint32_t)gen_crc16(buffer,14+ethertype))
+                {
+                    printf("\nCRC matched!\n");
+                }
+                else
+                {
+                    printf("\nCRC doesn't match\n");
+                }
+            }
+            crc_counter++;
         }
         else
         {
@@ -390,6 +441,9 @@ int main(int argc, char* argv[])
             char_counter = 0;
             ethertype = 0;
             ethertype_counter = 0;
+            crc_counter = 0;
+            crc = 0;
+            ethernet_frame_counter = 0;
             
         }
 
