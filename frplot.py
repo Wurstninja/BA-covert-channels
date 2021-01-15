@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
+import scipy.stats as stats
 
 # write fr values into arrays cached, uncached (hit,miss)
 fp = open("frtest.txt", "r")
@@ -69,6 +70,12 @@ plt.legend(handles=[red_patch,blue_patch])
 xmax = max(max(uncached), max(cached))
 xmin = min(min(uncached), min(cached))
 plt.xlim(xmin - 5, xmax + 5)
+# draw gaussian function for hits
+x = np.linspace(xmin, xmax, 100)
+plt.plot(x, stats.norm.pdf(x, avg_c, std_c), color='k')
+# draw gaussian function for misses
+x = np.linspace(avg_uc- 10*std_uc, avg_uc + 10*std_uc, 1000)
+plt.plot(x, stats.norm.pdf(x, avg_uc, std_uc), color='k')
 
 # calc threshold
 threshold = solve(avg_uc, avg_c, std_uc, std_c)
@@ -95,6 +102,9 @@ for x in range(0,len(correct)):
 
 # round threshold
 best_threshold = round(best_threshold,0)
+# draw threshold
+plt.vlines(best_threshold, 0, 0.2, linestyles="dashed", colors="k")
+
 # correct hits / total hits
 accuracy = max_correct/20000
 

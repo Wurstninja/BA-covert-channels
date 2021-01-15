@@ -86,11 +86,11 @@ int main(int argc, char* argv[])
         printf("Calculating threshold ... \n");
         if(mode)
         {
-            execlp("python", "python", "ffplot.py", NULL, (char*) NULL);
+            execlp("python", "python", "frplot.py", NULL, (char*) NULL);
         }
         else
         {
-            execlp("python", "python", "frplot.py", NULL, (char*) NULL);
+            execlp("python", "python", "ffplot.py", NULL, (char*) NULL);
         }
         
     }
@@ -195,8 +195,10 @@ int main(int argc, char* argv[])
 
             ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
             read(fd, &count, sizeof(long long));
-            
-            printf("%lli\n",count);
+            if(preamble_counter<56)
+            {
+                printf("%lli\n",count);
+            }
             if(count<threshold)
             {
                 hit = 0;
