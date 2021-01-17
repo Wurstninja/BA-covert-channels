@@ -54,7 +54,9 @@ int main(int argc, char* argv[])
 
     // read input payload
     printf("Message:\n");
-    fgets(input, 1500, stdin);
+    // fgets(input, 1500, stdin);
+    strcpy(input, "Dies ist der Teststring, der mehrfach übertragen wird!\n");
+    printf("%s",input);
     true_length = strlen(input) - 1; // length of string - \n
     payload_length; // length that has to be padded up to 46 bytes
     // when the input is less than 46 bytes, set payload_length to 64 and pad with 0
@@ -75,13 +77,21 @@ int main(int argc, char* argv[])
             printf("Couldn't allocate memory\n");
             return 1;
         }
-    // uint8_t ethernet_frame[64 + 112 + payload_length*8 + 32];
     // set all bits to 0
     memset(ethernet_frame, 0, 64 + 112 + payload_length*8 + 32);
     map_ethernet_frame(ethernet_frame, true_length, input);
     // uint8_t ethernet_frame[1000];
     // memset(ethernet_frame, 0, 1000);
     // map_alternatingbits(ethernet_frame);
+    // write ethernetframe bits to txt (compare with recv txt)
+    FILE* fp_exec;
+    fp_exec = fopen("sen_exec.txt", "w" );
+    for (int i = 0; i < (112 + payload_length*8 + 32); i++)
+    {
+        fprintf(fp_exec,"%i", ethernet_frame[i+64]);
+    }
+    fprintf(fp_exec, "2");
+    fflush(fp_exec);
     
     clock_gettime(CLOCK_MONOTONIC, &time);
     end_nsec = time.tv_nsec;
@@ -161,6 +171,7 @@ int main(int argc, char* argv[])
     // preparing to send new ethernet frame
     printf("Preparing to send next Ethernet frame\n");
     printf("----------------------------------\n");
+    sleep(1);
     goto start; // jump to start to send new Ethernet frame
     return 0;
 }

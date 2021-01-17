@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h> // for uintN_t
+#include <inttypes.h> // to print uintN_t
 #include <time.h> // for sync of sender and receiver
 #include <sys/wait.h> // letting parent wait for child
 
@@ -84,7 +85,7 @@ int main(int argc, char* argv[])
     if(fork() == 0)
     {
         printf("Calculating threshold ... \n");
-        if(mode)
+        if(mode) // depending on mode selected start F+R or F+F plot
         {
             execlp("python", "python", "frplot.py", NULL, (char*) NULL);
         }
@@ -156,7 +157,7 @@ int main(int argc, char* argv[])
     char* buffer = malloc(sizeof(char)); // store bytes on buffer and then check with crc
 
     FILE* fp_exec;
-    fp_exec = fopen("ffexec.txt", "w" );
+    fp_exec = fopen("rec_exec.txt", "w" );
     // gettime as reference for when the frame is over
     clock_gettime(CLOCK_MONOTONIC, &time);
 
@@ -188,6 +189,11 @@ int main(int argc, char* argv[])
             {
                 hit = 1;
             }
+            // print bits to txt when ethernet frame started (when sfd is finished)
+            if(sfd_counter == 8)
+            {
+                fprintf(fp_exec,"%i",hit);
+            }
         }
         else // F+F
         {
@@ -218,9 +224,7 @@ int main(int argc, char* argv[])
                 hit = 1;
             }
         }
-    	// print timings (debug)
-        /*fprintf(fp_exec,"%lli\n", count);
-        if(!hit)
+        /*if(!hit)
         {
             printf("miss %lli\n", count);
         }
@@ -375,11 +379,12 @@ int main(int argc, char* argv[])
                         printf("Payloadlength must be below 1500 characters\n");
                         ethertype = 1500;
                     }
+                    ethertype = 54;
                 }
             }   
             macheader_counter++; 
         }
-        else if(char_counter<ethertype)
+        else if(char_counter<ethertype+1)
         {
             //shift bit onto cur_char
             cur_char = cur_char | (hit)<<(7-bit_counter);
@@ -424,6 +429,8 @@ int main(int argc, char* argv[])
                 {
                     printf("\nCRC doesn't match\n");
                 }
+                fprintf(fp_exec,"2");
+                // fflush
             }
             crc_counter++;
         }
@@ -431,6 +438,9 @@ int main(int argc, char* argv[])
         {
             printf("\nPreparing for new Ethernet frame\n");
             printf("----------------------------------\n");
+
+            // flush pipeline
+            fflush(fp_exec);
             
             // reset counter and variables 
             preamble_counter = 0;
@@ -447,7 +457,11 @@ int main(int argc, char* argv[])
             
         }
 
-        
+        // print bits to txt when ethernet frame started (when sfd is finished)
+            if(sfd_counter == 8)
+            {
+                fprintf(fp_exec,"%i",hit);
+            }
         time.tv_nsec += interval;
         if(time.tv_nsec > 999999999) // nanoseconds overflow
         {

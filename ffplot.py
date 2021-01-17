@@ -11,7 +11,7 @@ cached = []
 # arrays to store hit and miss timings (will not be edited in the future)
 true_uncached = []
 true_cached = []
-for x in range (0,10000):
+for x in range (0,1000):
     uncached.append(int(fp.readline()))
     cached.append(int(fp.readline()))
 true_uncached = uncached.copy()
@@ -20,12 +20,12 @@ true_cached = cached.copy()
 # calc average
 avg_uc = 0
 avg_c = 0
-for x in range(0,10000):
+for x in range(0,1000):
     avg_uc += uncached[x]
     avg_c += cached[x]
 
-avg_uc = avg_uc/10000
-avg_c = avg_c/10000
+avg_uc = avg_uc/1000
+avg_c = avg_c/1000
 
 # calc median
 med_uc = np.median(uncached)
