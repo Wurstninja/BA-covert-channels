@@ -36,6 +36,8 @@ int main(int argc, char* argv[])
         printf("with <mode>: FF, FR\n");
         exit(1);
     }
+    // write interval input
+    uint64_t interval = atoi(argv[2]);
     // set up variables for the input string
     char input [1500];
     uint16_t true_length;
@@ -47,7 +49,6 @@ int main(int argc, char* argv[])
     struct timespec time2;
     uint64_t end_nsec;
     uint64_t end_sec;
-    uint64_t interval = 10000000;
     uint64_t store; // used to cache function
 
     start: // jump to start to send new Ethernet frame
@@ -80,8 +81,7 @@ int main(int argc, char* argv[])
     // set all bits to 0
     memset(ethernet_frame, 0, 64 + 112 + payload_length*8 + 32);
     map_ethernet_frame(ethernet_frame, true_length, input);
-    // uint8_t ethernet_frame[1000];
-    // memset(ethernet_frame, 0, 1000);
+    // memset(ethernet_frame, 0, 10000000);
     // map_alternatingbits(ethernet_frame);
     // write ethernetframe bits to txt (compare with recv txt)
     FILE* fp_exec;
@@ -161,7 +161,7 @@ int main(int argc, char* argv[])
             if(time.tv_nsec>=end_nsec&&time.tv_sec>=end_sec)
             {
                 clock_gettime(CLOCK_MONOTONIC, &time2);
-                printf("%i(%i):%i\n",i, ethernet_frame[i] ,time2.tv_nsec);
+                // printf("%i(%i):%i\n",i, ethernet_frame[i] ,time2.tv_nsec);
                 break;
             }
 

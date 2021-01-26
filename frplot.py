@@ -14,6 +14,14 @@ true_cached = []
 for x in range (0,1000):
     cached.append(int(fp.readline()))
     uncached.append(int(fp.readline()))
+# check if uncached and cached have been swapped
+if np.average(cached)>np.average(uncached):
+    # then swap array values
+    for x in range(0,1000):
+        temp = cached[x]
+        cached[x] = uncached[x]
+        uncached[x] = temp
+
 true_uncached = uncached.copy()
 true_cached = cached.copy()
 
@@ -103,7 +111,7 @@ for x in range(0,len(correct)):
 # round threshold
 best_threshold = round(best_threshold,0)
 # draw threshold
-plt.vlines(best_threshold, 0, 0.2, linestyles="dashed", colors="k")
+plt.vlines(best_threshold, 0, 0.1, linestyles="dashed", colors="k")
 
 # correct hits / total hits
 accuracy = max_correct/2000

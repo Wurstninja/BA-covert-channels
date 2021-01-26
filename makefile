@@ -18,7 +18,7 @@ receiver: receiver.o
 	$(CC) -L. -o receiver receiver.o -lsharedmem -lrt
 
 runsender:
-	@LD_LIBRARY_PATH=./ ./sender $(ARGS)
+	@LD_LIBRARY_PATH=./ ./sender $(ARG1) $(ARG2)
 
 runreceiver:
-	@LD_LIBRARY_PATH=./ ./receiver $(ARGS)
+	@LD_LIBRARY_PATH=./ ./receiver $(ARG1) $(ARG2)

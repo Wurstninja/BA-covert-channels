@@ -141,7 +141,7 @@ void map_ethernet_frame(uint8_t* ethernet_frame ,uint16_t payload_length, char* 
 // for debugging
 void map_alternatingbits(uint8_t* ethernet_frame)
 {
-    for(int i = 0; i < 1000; i++)
+    for(int i = 0; i < 10000000; i++)
     {
         if(i%2) // if bit is odd
         {

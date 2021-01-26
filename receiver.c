@@ -49,6 +49,8 @@ int main(int argc, char* argv[])
         printf("with <mode>: FF, FR\n");
         exit(1);
     }
+    // write interval input
+    uint64_t interval = atoi(argv[2]);
     
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
@@ -103,7 +105,7 @@ int main(int argc, char* argv[])
             printf("Child did not terminate with exit\n");
         }
     }
-
+    
     printf("threshold: ");
     scanf("%li", &threshold);
 
@@ -111,7 +113,6 @@ int main(int argc, char* argv[])
     // set up timing sync
     struct timespec time;
     struct timespec time2; // time2 used for debugging
-    uint64_t interval = 10000000;
     uint64_t store; // used to cache data during F+R
 
     // boolean to know if current bit is hit or miss
@@ -160,9 +161,8 @@ int main(int argc, char* argv[])
     fp_exec = fopen("rec_exec.txt", "w" );
     // gettime as reference for when the frame is over
     clock_gettime(CLOCK_MONOTONIC, &time);
-
     while(1) // receive loop
-    {
+    {   
         //clock_gettime(CLOCK_MONOTONIC, &time2);
         //printf("%i\n",time2.tv_nsec); // just for debugging
         if(mode) // F+R
@@ -181,6 +181,10 @@ int main(int argc, char* argv[])
 
             ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
             read(fd, &count, sizeof(long long));
+            if(preamble_counter<56)
+            {
+                printf("%lli\n",count);
+            }
             if(count>threshold)
             {
                 hit = 0;
@@ -188,11 +192,6 @@ int main(int argc, char* argv[])
             else
             {
                 hit = 1;
-            }
-            // print bits to txt when ethernet frame started (when sfd is finished)
-            if(sfd_counter == 8)
-            {
-                fprintf(fp_exec,"%i",hit);
             }
         }
         else // F+F
@@ -224,14 +223,6 @@ int main(int argc, char* argv[])
                 hit = 1;
             }
         }
-        /*if(!hit)
-        {
-            printf("miss %lli\n", count);
-        }
-        else
-        {
-            printf("hit %lli\n", count);
-        }*/
 
         // detect following preamble bits 
         if(preamble_counter<56)
@@ -346,6 +337,8 @@ int main(int argc, char* argv[])
         }
         else if(macheader_counter<112)
         {
+            // write hit/miss to txt for later evaluation
+            fprintf(fp_exec,"%i",hit);
             // printf("mac:%i\n",macheader_counter); // just for debugging
             //shift bit onto cur_char
             cur_char = cur_char | (hit)<<(7-bit_counter);
@@ -386,6 +379,8 @@ int main(int argc, char* argv[])
         }
         else if(char_counter<ethertype+1)
         {
+            // write hit/miss to txt for later evaluation
+            fprintf(fp_exec,"%i",hit);
             //shift bit onto cur_char
             cur_char = cur_char | (hit)<<(7-bit_counter);
             // in last bit of cur_char step
@@ -410,6 +405,8 @@ int main(int argc, char* argv[])
         }
         else if(crc_counter<32)
         {
+            // write hit/miss to txt for later evaluation
+            fprintf(fp_exec,"%i",hit);
             crc = crc | (hit)<<(31-crc_counter);
             // in last step
             if(crc_counter == 31)
@@ -456,12 +453,6 @@ int main(int argc, char* argv[])
             ethernet_frame_counter = 0;
             
         }
-
-        // print bits to txt when ethernet frame started (when sfd is finished)
-            if(sfd_counter == 8)
-            {
-                fprintf(fp_exec,"%i",hit);
-            }
         time.tv_nsec += interval;
         if(time.tv_nsec > 999999999) // nanoseconds overflow
         {
