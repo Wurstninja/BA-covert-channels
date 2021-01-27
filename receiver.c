@@ -38,19 +38,41 @@ int main(int argc, char* argv[])
     {
         mode = 0; 
     }
-    if(strcmp(argv[1],"FR")==0)
+    else if(strcmp(argv[1],"FR")==0)
     {
         mode = 1;
     }
     if(mode==42) // if mode is neither FF nor FR
     {
         printf("Error: Unknown Mode\n");
-        printf("ARGS should look like: <mode>\n");
+        printf("ARGS should look like: \"ARG1=<mode>\" \"ARG2=<interval>\" \"ARG3=<coremode>\" \n");
         printf("with <mode>: FF, FR\n");
+        printf("and <interval>: wait time between each sent bit in integer\n");
+        printf("and <coremode>: SC, CC (for Same Core and Cross Core)\n");
         exit(1);
     }
     // write interval input
     uint64_t interval = atoi(argv[2]);
+
+    uint8_t cross_core;
+
+        if(strcmp(argv[3],"SC")==0) // if same core then use nanosleep
+        {
+            cross_core = 0;
+        }
+        else if(strcmp(argv[3],"CC")==0) // if cross core use busy loop
+        {
+            cross_core = 1;
+        }
+        else
+        {
+            printf("Error: Unknown Mode\n");
+            printf("ARGS should look like: \"ARG1=<mode>\" \"ARG2=<interval>\" \"ARG3=<coremode>\" \n");
+            printf("with <mode>: FF, FR\n");
+            printf("and <interval>: wait time between each sent bit in integer\n");
+            printf("and <coremode>: SC, CC (for Same Core and Cross Core)\n");
+            exit(1);
+        }
     
     // setting up PERF_COUNT_HW_CPU_CYCLES
     struct perf_event_attr pe;
@@ -84,7 +106,7 @@ int main(int argc, char* argv[])
 
     // open python script to calc threshold
     uint32_t statval;
-    if(fork() == 0)
+    /*if(fork() == 0)
     {
         printf("Calculating threshold ... \n");
         if(mode) // depending on mode selected start F+R or F+F plot
@@ -106,13 +128,14 @@ int main(int argc, char* argv[])
         }
     }
     
-    printf("threshold: ");
+    printf("threshold: ");*/
     scanf("%li", &threshold);
 
 
     // set up timing sync
     struct timespec time;
     struct timespec time2; // time2 used for debugging
+    struct timespec towait; // used in busy waiting loop
     uint64_t store; // used to cache data during F+R
 
     // boolean to know if current bit is hit or miss
@@ -459,7 +482,22 @@ int main(int argc, char* argv[])
             time.tv_nsec -= 1000000000;
             time.tv_sec++;
         }
-        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &time, NULL);
+        if(!cross_core) // if same core then use nanosleep
+        {
+            clock_gettime(CLOCK_MONOTONIC, &time2);
+        }
+        else if(cross_core) // if cross core use busy waiting loop
+        {
+           while(1)
+            {
+                clock_gettime(CLOCK_MONOTONIC, &towait);
+                if(towait.tv_sec >= time.tv_sec && towait.tv_nsec >= time.tv_nsec)
+                {
+                    break;
+                }
+            } 
+        }
+        
     }
     return 0;
 }

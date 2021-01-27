@@ -21,4 +21,4 @@ runsender:
 	@LD_LIBRARY_PATH=./ ./sender $(ARG1) $(ARG2)
 
 runreceiver:
-	@LD_LIBRARY_PATH=./ ./receiver $(ARG1) $(ARG2)
+	@LD_LIBRARY_PATH=./ ./receiver $(ARG1) $(ARG2) $(ARG3)
