@@ -64,7 +64,7 @@ for y in range(0,20):
     acc = (tp + tn) / ( tp + fp + tn + fn)
 
     # calc channel capacity (shannon)
-    cap = 1-entropy([acc,1-acc])
+    cap = 1-entropy([acc,1-acc],base=2)
 
     # calc wasserstein distance
     wsd = wasserstein_distance(recv,send)

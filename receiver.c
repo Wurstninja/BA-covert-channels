@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 
     // open python script to calc threshold
     uint32_t statval;
-    /*if(fork() == 0)
+    if(fork() == 0)
     {
         printf("Calculating threshold ... \n");
         if(mode) // depending on mode selected start F+R or F+F plot
@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
         }
     }
     
-    printf("threshold: ");*/
+    printf("threshold: ");
     scanf("%li", &threshold);
 
 
@@ -204,10 +204,10 @@ int main(int argc, char* argv[])
 
             ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
             read(fd, &count, sizeof(long long));
-            if(preamble_counter<56)
+            /*if(preamble_counter<56)
             {
-                printf("%lli\n",count);
-            }
+                printf("%" PRIu64"\n",count);
+            }*/
             if(count>threshold)
             {
                 hit = 0;
@@ -233,10 +233,10 @@ int main(int argc, char* argv[])
 
             ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
             read(fd, &count, sizeof(long long));
-            if(preamble_counter<56)
+            /*if(preamble_counter<56)
             {
-                printf("%lli\n",count);
-            }
+                printf("%" PRIu64 "",count);
+            }*/
             if(count<threshold)
             {
                 hit = 0;
@@ -361,7 +361,7 @@ int main(int argc, char* argv[])
         else if(macheader_counter<112)
         {
             // write hit/miss to txt for later evaluation
-            fprintf(fp_exec,"%i",hit);
+            fprintf(fp_exec,"%" PRIu8 "",hit);
             // printf("mac:%i\n",macheader_counter); // just for debugging
             //shift bit onto cur_char
             cur_char = cur_char | (hit)<<(7-bit_counter);
@@ -385,7 +385,7 @@ int main(int argc, char* argv[])
                 // in last step print payloadlength
                 if(macheader_counter==111)
                 {
-                    printf("Payloadlength:%i\n",ethertype);
+                    printf("Payloadlength:%" PRIu16 "\n",ethertype);
                     if(ethertype<46)
                     {
                         ethertype = 46;
@@ -403,7 +403,7 @@ int main(int argc, char* argv[])
         else if(char_counter<ethertype+1)
         {
             // write hit/miss to txt for later evaluation
-            fprintf(fp_exec,"%i",hit);
+            fprintf(fp_exec,"%" PRIu8 "",hit);
             //shift bit onto cur_char
             cur_char = cur_char | (hit)<<(7-bit_counter);
             // in last bit of cur_char step
@@ -429,7 +429,7 @@ int main(int argc, char* argv[])
         else if(crc_counter<32)
         {
             // write hit/miss to txt for later evaluation
-            fprintf(fp_exec,"%i",hit);
+            fprintf(fp_exec,"%" PRIu8 "",hit);
             crc = crc | (hit)<<(31-crc_counter);
             // in last step
             if(crc_counter == 31)
