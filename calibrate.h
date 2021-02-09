@@ -77,9 +77,10 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
 
     uint64_t ffuncached [1000];
     uint64_t ffcached [1000];
-
+    // measure 1000 hits and misses and write to txt
     for(int i = 0; i < 1000; i++)
     {
+        // get 1 hit and miss
         flush_flush_timing(addr, pe, count, fd, fftimings);
         // store in array to measure threshold
         ffuncached [i] = fftimings[0];
@@ -90,10 +91,15 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
         uncached_flush_avg += fftimings[0];
         cached_flush_avg += fftimings[1];
     }
+
+    fclose(fp);
+
+    // following is unused but can be printed to console
     
     // calc avg
     uncached_flush_avg = uncached_flush_avg/1000;
     cached_flush_avg = cached_flush_avg/1000;
+    
 
     // calc cached median
     qsort(ffcached, sizeof(ffcached)/sizeof(*ffcached), sizeof(*ffcached), comp);
@@ -103,29 +109,7 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
     qsort(ffuncached, sizeof(ffuncached)/sizeof(*ffuncached), sizeof(*ffuncached), comp);
     uint64_t median_uc = (ffuncached[1000/2]+ffuncached[1000/2-1])/2;
     
-
-    fclose(fp);
-
-    
-
-    // calculating threshold
-
-    // find min cached flush
-    uint64_t ffmin = 1000;
-    for(int i = 0; i<1000; i++)
-    {
-        // check for lowest cached timing
-        if(ffmin>ffcached[i])
-        {
-            // but still close to other cached timings 
-            if(ffcached[i]>median_c - (median_c - median_uc)*0.3)
-            {
-                ffmin = ffcached[i];
-            }
-        }
-    }
-
-    return ffmin-1;
+    return 0;
 }
 
 void flush_reload_timing(void* addr, struct perf_event_attr pe, uint64_t count, int fd, uint64_t* frtimings)
@@ -195,9 +179,10 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
 
     uint64_t frcached [1000];
     uint64_t fruncached [1000];
-
+    // measure 1000 hits and misses and write times to txt
     for(int i = 0; i < 1000; i++)
     {
+        // get 1 hit and miss
         flush_reload_timing(addr, pe, count, fd, frtimings);
         // store in array to measure threshold
         frcached [i] = frtimings[0];
@@ -209,12 +194,12 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
         uncached_reload_avg += frtimings[1];
     }
 
-    
+    fclose(fp2);
+    // following is unused but can be printed to console
+
     // calc average
     cached_reload_avg = cached_reload_avg/1000;
     uncached_reload_avg = uncached_reload_avg/1000;
-
-    fclose(fp2);
 
     // calc cached median
     qsort(frcached, sizeof(frcached)/sizeof(*frcached), sizeof(*frcached), comp);
@@ -223,23 +208,6 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
     // calc uncached median
     qsort(fruncached, sizeof(fruncached)/sizeof(*fruncached), sizeof(*fruncached), comp);
     uint64_t median_uc = (fruncached[1000/2]+fruncached[1000/2-1])/2;
-
-    // calculating threshold
-
-    // find min uncached reload
-    uint64_t frmin = 1000;
-    for(int i = 0; i<1000; i++)
-    {
-        // check for lowest uncached timing
-        if(frmin>fruncached[i])
-        {
-            // but still close to other uncached timings 
-            if(fruncached[i]>median_uc - (median_uc - median_c)*0.3)
-            {
-                frmin = fruncached[i];
-            }
-        }
-    }
     
-    return frmin-1;
+    return 0;
 }

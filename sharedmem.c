@@ -2,6 +2,8 @@
 
 #define SIZE 192
 
+// init and open sharedmem is not used in final work, but has been tested with
+
 void init_sharedmem()
 {
     // create shared mem

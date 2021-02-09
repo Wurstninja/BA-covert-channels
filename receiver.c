@@ -395,7 +395,6 @@ int main(int argc, char* argv[])
                         printf("Payloadlength must be below 1500 characters\n");
                         ethertype = 1500;
                     }
-                    ethertype = 54;
                 }
             }   
             macheader_counter++; 

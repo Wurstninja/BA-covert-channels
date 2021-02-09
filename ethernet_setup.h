@@ -5,21 +5,8 @@
 #define CRC16 0x8005
 
 void map_ethernet_frame(uint8_t* ,uint16_t, char*);
-void set_sfd(uint8_t*);
 void map_alternatingbits(uint8_t*);
 uint16_t gen_crc16(const uint8_t*, uint16_t);
-
-void set_sfd(uint8_t* sfd)
-{
-    sfd [0] = 1;
-    sfd [1] = 0;
-    sfd [2] = 1;
-    sfd [3] = 0;
-    sfd [4] = 1;
-    sfd [5] = 0;
-    sfd [6] = 1;
-    sfd [7] = 1;
-}
 
 void map_ethernet_frame(uint8_t* ethernet_frame ,uint16_t payload_length, char* payload)
 {

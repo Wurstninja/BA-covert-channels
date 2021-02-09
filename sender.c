@@ -55,9 +55,7 @@ int main(int argc, char* argv[])
 
     // read input payload
     printf("Message:\n");
-    // fgets(input, 1500, stdin);
-    strcpy(input, "Dies ist der Teststring, der mehrfach übertragen wird!\n");
-    printf("%s",input);
+    fgets(input, 1500, stdin);
     true_length = strlen(input) - 1; // length of string - \n
     payload_length; // length that has to be padded up to 46 bytes
     // when the input is less than 46 bytes, set payload_length to 64 and pad with 0
@@ -90,7 +88,7 @@ int main(int argc, char* argv[])
     {
         fprintf(fp_exec,"%i", ethernet_frame[i+64]);
     }
-    fprintf(fp_exec, "2");
+    fprintf(fp_exec, "2"); // as end of ethernet frame
     fflush(fp_exec);
     
     clock_gettime(CLOCK_MONOTONIC, &time);
