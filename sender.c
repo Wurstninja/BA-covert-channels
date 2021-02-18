@@ -42,8 +42,8 @@ int main(int argc, char* argv[])
     char input [1500];
     uint16_t true_length;
     uint16_t payload_length;
-    uint8_t* ethernet_frame;
-
+    uint8_t* ethernet_frame = NULL;
+    
     // set up variables for timing during sending
     struct timespec time;
     struct timespec time2;
@@ -55,7 +55,10 @@ int main(int argc, char* argv[])
 
     // read input payload
     printf("Message:\n");
-    fgets(input, 1500, stdin);
+    strcpy(input, "Dies ist der Teststring, der mehrfach übertragen wird!\n");
+    printf("%s",input);
+
+    //fgets(input, 1500, stdin);
     true_length = strlen(input) - 1; // length of string - \n
     payload_length; // length that has to be padded up to 46 bytes
     // when the input is less than 46 bytes, set payload_length to 64 and pad with 0
@@ -67,7 +70,6 @@ int main(int argc, char* argv[])
     {
         payload_length = true_length;
     }
-    
     // generate ethernet frame
     // preamble + mac header + payload + checksum
     if((ethernet_frame = realloc(ethernet_frame, sizeof(uint8_t)*(64 + 112 + payload_length*8 + 32)))

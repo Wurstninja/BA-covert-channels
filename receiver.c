@@ -103,28 +103,70 @@ int main(int argc, char* argv[])
     {
         threshold = flush_reload_threshold(nop, pe, count, fd);
     }
-
-    // open python script to calc threshold
-    uint32_t statval;
-    if(fork() == 0)
+    // find running OS name
+    uint8_t os_name = 'a'; // os_name by default Arch
+    FILE* fp_os;
+    fp_os = fopen("/etc/os-release", "r" );
+    char* distribution = malloc(sizeof(char)*25);
+    uint8_t ch;
+    for(int i = 0; i < 7; i++)
     {
-        printf("Calculating threshold ... \n");
-        if(mode) // depending on mode selected start F+R or F+F plot
+        ch = getc(fp_os);
+        if(i==6 && ch == 'U')        // if OS name starts with U then Ubuntu instead of Arch
         {
-            execlp("python", "python", "frplot.py", NULL, (char*) NULL);
+            os_name = 'u';
+        }
+    }
+    if(os_name == 'u') // if ubuntu then open python3
+    {
+        // open python script to calc threshold
+        uint32_t statval;
+        if(fork() == 0)
+        {
+            printf("Calculating threshold ... \n");
+            if(mode) // depending on mode selected start F+R or F+F plot
+            {
+                execlp("python3", "python3", "frplot.py", NULL, (char*)0);
+            }
+            else
+            {
+                execlp("python3", "python3", "ffplot.py", NULL, (char*)0);
+            }
+            
         }
         else
         {
-            execlp("python", "python", "ffplot.py", NULL, (char*) NULL);
+            wait(&statval);
+            if(!WIFEXITED(statval))
+            {
+                printf("Child did not terminate with exit\n");
+            }
         }
-        
     }
-    else
+    else // if arch
     {
-        wait(&statval);
-        if(!WIFEXITED(statval))
+        // open python script to calc threshold
+        uint32_t statval;
+        if(fork() == 0)
         {
-            printf("Child did not terminate with exit\n");
+            printf("Calculating threshold ... \n");
+            if(mode) // depending on mode selected start F+R or F+F plot
+            {
+                execlp("python", "python", "frplot.py", NULL, (char*) NULL);
+            }
+            else
+            {
+                execlp("python", "python", "ffplot.py", NULL, (char*) NULL);
+            }
+            
+        }
+        else
+        {
+            wait(&statval);
+            if(!WIFEXITED(statval))
+            {
+                printf("Child did not terminate with exit\n");
+            }
         }
     }
     

@@ -86,8 +86,8 @@ uint64_t flush_flush_threshold(void* addr, struct perf_event_attr pe, uint64_t c
         ffuncached [i] = fftimings[0];
         ffcached [i] = fftimings[1];
         // write to txt for plotting
-        fprintf(fp,"%lli\n", fftimings[0]);
-        fprintf(fp,"%lli\n", fftimings[1]);
+        fprintf(fp,"%" PRIu64"\n", fftimings[0]);
+        fprintf(fp,"%" PRIu64"\n", fftimings[1]);
         uncached_flush_avg += fftimings[0];
         cached_flush_avg += fftimings[1];
     }
@@ -188,8 +188,8 @@ uint64_t flush_reload_threshold(void* addr, struct perf_event_attr pe, uint64_t 
         frcached [i] = frtimings[0];
         fruncached [i] = frtimings[1];
         // write to txt for plotting
-        fprintf(fp2,"%lli\n", frtimings[0]);
-        fprintf(fp2,"%lli\n", frtimings[1]);
+        fprintf(fp2,"%" PRIu64"\n", frtimings[0]);
+        fprintf(fp2,"%" PRIu64"\n", frtimings[1]);
         cached_reload_avg += frtimings[0];
         uncached_reload_avg += frtimings[1];
     }
