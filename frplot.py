@@ -111,13 +111,13 @@ for x in range(0,len(correct)):
 # round threshold
 best_threshold = round(best_threshold,0)
 # draw threshold
-plt.vlines(best_threshold, 0, 0.1, linestyles="dashed", colors="k")
+plt.vlines(best_threshold, 0, 0.006, linestyles="dashed", colors="k")
 
 # correct hits / total hits
 accuracy = max_correct/2000
 
 print('Accuracy:', accuracy)
-print('Best Threshold', int(best_threshold))
+print('Best threshold', int(best_threshold))
 
 plt.suptitle('F+R Timings')
 plt.xlabel('CPU Cycles')

@@ -100,7 +100,6 @@ for x in range(0,len(threshold)):
     for y in range(0, len(cached)):
         if true_cached[y] > threshold[x] :
             correct[x] += 1
-
 best_threshold = 0
 max_correct = 0 # highest correct classified  bits value stored here
 for x in range(0,len(correct)):
@@ -111,12 +110,12 @@ for x in range(0,len(correct)):
 # round threshold
 best_threshold = round(best_threshold, 0)
 # draw threshold
-plt.vlines(best_threshold, 0, 0.14, linestyles="dashed", colors="k")
+plt.vlines(best_threshold, 0, 0.035, linestyles="dashed", colors="k")
 # calc accuracy
 accuracy = max_correct/2000
 
 print('Accuracy:', accuracy)
-print('Best Threshold', int(best_threshold))
+print('Best threshold', int(best_threshold))
 
 plt.suptitle('F+F Timings')
 plt.xlabel('CPU Cycles')
