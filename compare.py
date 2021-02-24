@@ -3,6 +3,7 @@ from scipy.stats import entropy
 from numpy import median
 from numpy import average
 from numpy import var
+import random
 
 #read sender data (just load once)
 fp_send = open("sen_exec.txt", "r")
@@ -82,6 +83,24 @@ for y in range(0,20):
     print('Capacity = ', cap)
     array_cap[y] = cap
 
+# calc new wsd with artificial error rate to get expected wsd
+salt = [0] * len(send)  # array with artificial error rate applied
+sum_wsd = 0
+array_exp_wsd = [0] * 1000
+for _ in range(1000):
+    for i in range(len(send)):
+        if random.random() > average(array_acc): # if random hits above accuracy
+            salt[i] = send[i] ^ 1     # then flip bit
+        else:
+            salt[i] = send[i]       # otherwise not
+    array_exp_wsd[i] = wasserstein_distance(send, salt)
+    sum_wsd += array_exp_wsd[i]
+
+sum_wsd /= 1000
+
+
+
+
 print('Median WSD:', median(array_wsd))
 print('Median ACC:', median(array_acc))
 print('Median ERR:', 1-median(array_acc))
@@ -108,3 +127,7 @@ print('Variance FP:', var(array_fp))
 print('Variance TN:', var(array_tn))
 print('Variance FN:', var(array_fn))
 print('Variance CAP:', var(array_cap))
+
+print('Expected WSD', average(array_exp_wsd))
+print('Expected WSD var:', var(array_exp_wsd))
+print('Expected WSD (sum)', sum_wsd)
